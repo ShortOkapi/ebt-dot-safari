@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ebt-dot-safari-v1.9.6';
+const CACHE_NAME = 'ebt-dot-safari-v1.9.7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
