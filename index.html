@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<!-- EBT Dot Safari - v1.9.2 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>EBT Dot Safari</title>
+  <meta name="description" content="A live GPS tracking tool and heatmap for EuroBillTracker map dot hunters." />
+  
+  <!-- Open Graph / SEO -->
+  <meta property="og:title" content="EBT Dot Safari" />
+  <meta property="og:description" content="A live GPS tracking tool and heatmap for EuroBillTracker map dot hunters." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://ebt-dotsafari-map.netlify.app/apple-touch-icon.png" />
+  
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <meta name="theme-color" content="#ea580c">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body, #map { height: 100%; height: 100dvh; }
+    body { margin: 0; padding: 0; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #e5e5e5; overflow: hidden; }
+    #map { width: 100%; }
+
+    .panel {
+      position: absolute; z-index: 1000;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(6px);
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16);
+      transition: max-height 0.3s ease;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #control-panel, #hud-panel {
+      left: max(12px, env(safe-area-inset-left)); 
+      width: 320px; 
+      max-width: calc(100% - 60px - env(safe-area-inset-left) - env(safe-area-inset-right)); 
+    }
+    #control-panel { 
+      top: max(12px, env(safe-area-inset-top)); 
+      max-height: calc(100dvh - 24px - env(safe-area-inset-top));
+    }
+    #hud-panel { 
+      bottom: max(12px, env(safe-area-inset-bottom));
+      max-height: calc(100dvh - 74px - env(safe-area-inset-bottom));
+      margin: 0;
+    }
+    
+    .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-radius: 4px; padding: 2px; }
+    .panel-header:focus-visible { outline: 2px solid #c2410c; outline-offset: 4px; }
+    .panel-content { margin-top: 10px; display: block; }
+    .collapsed .panel-content { display: none; }
+
+    .btn-group { display: flex; gap: 8px; }
+    .btn {
+      flex: 1; text-align: center; background: #ea580c; color: #fff;
+      font-weight: 600; font-size: 13px; padding: 9px; border-radius: 8px;
+      cursor: pointer; border: none; text-decoration: none; display: inline-block;
+      transition: background 0.2s;
+    }
+    .btn:active { background: #9a3412; }
+    .btn:focus-visible { outline: 2px solid #0f172a; outline-offset: 2px; }
+    
+    .btn-clear { background: #ef4444; color: white; flex: 0 0 40px; font-size: 16px; padding: 0; display: flex; align-items: center; justify-content: center; }
+    .btn-clear:active { background: #b91c1c; }
+    
+    .btn-about { background: #475569; color: white; flex: 0 0 40px; font-size: 16px; padding: 0; display: flex; align-items: center; justify-content: center; }
+    .btn-about:active { background: #334155; }
+    
+    input[type="file"] { display: none; }
+
+    .stat-badge {
+      display: inline-block; padding: 3px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 700;
+    }
+    .conquered { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
+    .unconquered { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+
+    .legend-container { margin-top: 10px; }
+    .legend-title { font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+    .legend-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid #cbd5e1; }
+    .legend-cell { flex: 1; height: 100%; }
+
+    .legend-grid {
+      display: grid; grid-template-columns: repeat(8, 1fr);
+      font-size: 10px; color: #64748b; margin-top: 4px; font-weight: 500;
+    }
+
+    .status-box {
+      font-size: 12px; color: #334155; margin-top: 8px; line-height: 1.45;
+      background: #f8fafc; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0;
+    }
+
+    /* Fixed SVG Crosshair Button */
+    .leaflet-control-locate {
+      background: #fff; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+      width: 34px; height: 34px; border: none; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #ea580c;
+      margin-bottom: 10px !important; margin-right: 10px !important;
+    }
+    .leaflet-control-locate:hover { background: #f8fafc; }
+    .leaflet-control-locate:focus-visible { outline: 2px solid #ea580c; outline-offset: 2px; }
+    
+    /* Make Leaflet Layers button match the Zoom/Locate buttons */
+    .leaflet-touch .leaflet-control-layers-toggle {
+      width: 34px; height: 34px; background-size: 18px; background-position: center;
+    }
+
+    .about-dialog {
+      background: white; padding: 24px; border-radius: 12px; max-width: 450px; position: relative; 
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      max-height: calc(100dvh - 40px); overflow: auto; -webkit-overflow-scrolling: touch;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Controls Panel -->
+  <div id="control-panel" class="panel">
+    <div class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="control-content" onclick="togglePanel(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); togglePanel(this);}">
+      <h1 style="font-size: 15px; color: #0f172a; margin: 0; padding: 0;">EBT Dot Safari</h1>
+      <span id="storage-indicator" style="font-size: 11px; color: #047857; font-weight: 700;">Ready</span>
+    </div>
+
+    <div id="control-content" class="panel-content">
+      <div class="btn-group">
+        <button class="btn" type="button" onclick="document.getElementById('csv-input').click()" aria-label="Load EBT Notes File">
+          📁 Load EBT Notes File
+        </button>
+        <input type="file" id="csv-input" accept=".csv,text/csv" tabindex="-1" />
+        <button class="btn btn-about" type="button" id="about-btn" aria-label="About" title="About / Credits">ℹ️</button>
+        <button class="btn btn-clear" type="button" id="clear-btn" aria-label="Clear conquered dots" title="Clear conquered dots">☒</button>
+      </div>
+
+      <div id="stats-container" class="status-box" role="status" aria-live="polite" aria-atomic="true">
+        <div id="user-display" style="font-weight: 700; color: #c2410c;">No user loaded</div>
+        <div id="notes-count" style="color: #64748b;"><b>0</b> notes</div>
+        <div id="dots-count" style="color: #64748b;">Grid only (<b>0</b> conquered dots)</div>
+      </div>
+
+      <div class="legend-container">
+        <div class="legend-title">Notes per dot</div>
+        <div class="legend-bar">
+          <div class="legend-cell" style="background:#ffeda0"></div>
+          <div class="legend-cell" style="background:#fed976"></div>
+          <div class="legend-cell" style="background:#feb24c"></div>
+          <div class="legend-cell" style="background:#fd8d3c"></div>
+          <div class="legend-cell" style="background:#fc4e2a"></div>
+          <div class="legend-cell" style="background:#e31a1c"></div>
+          <div class="legend-cell" style="background:#bd0026"></div>
+          <div class="legend-cell" style="background:#800026"></div>
+        </div>
+        <div class="legend-grid">
+          <div style="grid-column: 1; text-align: left;" id="lbl-step1">1+</div>
+          <div style="grid-column: 2; text-align: left;" id="lbl-step2">-</div>
+          <div style="grid-column: 4; text-align: left;" id="lbl-step4">-</div>
+          <div style="grid-column: 6; text-align: left;" id="lbl-step6">-</div>
+          <div style="grid-column: 8; text-align: right;" id="lbl-step8">Max</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Radar HUD Panel -->
+  <div id="hud-panel" class="panel">
+    <div class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="hud-content" onclick="togglePanel(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); togglePanel(this);}">
+      <b style="color: #0f172a; font-size: 14px;">Target Compass</b>
+      <span id="gps-status" style="color: #64748b; font-size: 11px; font-weight: 600;">Requesting GPS...</span>
+    </div>
+    <div id="hud-content" class="panel-content">
+      <div style="line-height: 1.5; font-size: 13px;">
+        Allow location access when prompted...
+      </div>
+    </div>
+  </div>
+
+  <!-- About Modal -->
+  <div id="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
+    <div class="about-dialog">
+      <button id="about-close" type="button" aria-label="Close" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b;">✖</button>
+      <h2 id="about-title" style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px;">EBT Dot Safari</h2>
+      <p style="margin: 0 0 16px 0; font-size: 13px; color: #64748b; font-style: italic;">A long-awaited tool for EuroBillTracker map dot hunters.</p>
+      <div style="font-size: 13px; color: #334155; line-height: 1.5; display: flex; flex-direction: column; gap: 12px;">
+        <div>Ferran (<b>Tuscac</b>, from Girona 🇪🇸) was the latest of several EBTors over the past few years to ask for live GPS tracking on their personal Google Dotmaps.</div>
+        <div>Miguel Viterbo (<b>lmviterbo</b>, from Lisboa 🇵🇹) had the nerve to create and direct the project, with all code generated by <b>Gemini</b>, and final audit by <b>ChatGPT</b>.</div>
+        <div>The tool was rigorously audited, optimized, and field-tested by veteran developer Peter Zagler (<b>elpeza s̶p̶a̶s̶i̶b̶a̶</b>, from Linz 🇦🇹), with analysis assistance from <b>Claude</b>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="map" role="region" aria-label="Interactive dot map. Use arrow keys to pan and press Enter to inspect the centre dot."></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const dotH = 0.28;
+    const dotW = 66 / 157;
+    const minLat = -89.72;
+    const minLon = -178.89171974522293;
+
+    const COLORS = ["#ffeda0", "#fed976", "#feb24c", "#fd8d3c", "#fc4e2a", "#e31a1c", "#bd0026", "#800026"];
+
+    let dotMap = new Map();
+    let renderDots = [];
+    let maxNotesPerDot = 1;
+    let totalNotesCount = 0;
+    let currentPos = null;
+    let currentUserName = "Anonymous";
+    
+    // File Parser State
+    let importVersion = 0;
+    let activeReader = null;
+    const MAX_CSV_BYTES = 40 * 1024 * 1024; // 40MB limit for mobile browsers
+
+    // GPS State
+    const MAX_USABLE_ACCURACY_M = 1000;
+    const MAX_FIX_AGE_MS = 15000;
+    const GEO_OPTIONS = { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 };
+    let marker = null;
+    let geoWatchId = null;
+    let lastFixAt = 0;
+
+    const map = L.map('map', { zoomControl: false }).setView([50.1109, 8.6821], 4);
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    const esriLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19, attribution: 'Tiles &copy; Esri'
+    });
+
+    L.control.layers({"OSM (Local Script)": osmLayer, "Esri (Latin Script)": esriLayer}, {}, {position: 'bottomright'}).addTo(map);
+
+    // SVG Locate Button
+    const LocateControl = L.Control.extend({
+      options: { position: 'topright' },
+      onAdd: function (map) {
+        const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control leaflet-control-locate');
+        btn.setAttribute('type', 'button');
+        btn.setAttribute('aria-label', 'Locate me');
+        btn.setAttribute('title', 'Locate me');
+        btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/></svg>`;
+        btn.onclick = function(e) {
+          e.stopPropagation();
+          if (currentPos) map.setView(currentPos, Math.max(map.getZoom(), 13));
+          else startGPS();
+        };
+        return btn;
+      }
+    });
+    map.addControl(new LocateControl());
+
+    // Keyboard Map Inspection
+    map.getContainer().addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      map.fire('click', { latlng: map.getCenter() });
+    });
+
+    function formatNumber(num) {
+      return num.toLocaleString("en-US").replace(/,/g, '\u202F');
+    }
+
+    function updateLegendLabels() {
+      if (maxNotesPerDot <= 1) {
+        document.getElementById('lbl-step1').textContent = '1+';
+        document.getElementById('lbl-step2').textContent = '-';
+        document.getElementById('lbl-step4').textContent = '-';
+        document.getElementById('lbl-step6').textContent = '-';
+        document.getElementById('lbl-step8').textContent = '1';
+        return;
+      }
+      const logM = Math.log(maxNotesPerDot);
+      const val2 = Math.max(2, Math.round(Math.exp((1/7) * logM)));
+      const val4 = Math.max(val2 + 1, Math.round(Math.exp((3/7) * logM)));
+      const val6 = Math.max(val4 + 1, Math.round(Math.exp((5/7) * logM)));
+
+      document.getElementById('lbl-step1').textContent = '1+';
+      document.getElementById('lbl-step2').textContent = '2+'; 
+      document.getElementById('lbl-step4').textContent = formatNumber(val4);
+      document.getElementById('lbl-step6').textContent = formatNumber(val6);
+      document.getElementById('lbl-step8').textContent = formatNumber(maxNotesPerDot);
+    }
+
+    function updateMaxCount() {
+      maxNotesPerDot = 1;
+      totalNotesCount = 0;
+      for (const count of dotMap.values()) {
+        if (count > maxNotesPerDot) maxNotesPerDot = count;
+        totalNotesCount += count;
+      }
+      updateLegendLabels();
+    }
+
+    function getDynamicColorIndex(count) {
+      if (!count || count <= 0) return -1;
+      if (maxNotesPerDot <= 1 || count === 1) return 0;
+      const t = Math.log(count) / Math.log(maxNotesPerDot);
+      const index = Math.min(7, Math.floor(t * 8));
+      return Math.max(1, index); 
+    }
+
+    // Pre-calculate rendering array to save RAM & CPU on pan
+    function buildRenderDots() {
+      renderDots = Array.from(dotMap, ([key, count]) => {
+        const separator = key.indexOf('_');
+        return [ Number(key.slice(0, separator)), Number(key.slice(separator + 1)), count ];
+      });
+    }
+
+    const EBTLayer = L.GridLayer.extend({
+      createTile: function(coords) {
+        const tile = document.createElement('canvas');
+        const tileSize = this.getTileSize();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        
+        tile.width = tileSize.x * dpr;
+        tile.height = tileSize.y * dpr;
+        tile.style.width = tileSize.x + 'px';
+        tile.style.height = tileSize.y + 'px';
+        
+        const ctx = tile.getContext('2d');
+        if (!ctx) return tile;
+        ctx.scale(dpr, dpr);
+        
+        const bounds = this._tileCoordsToBounds(coords);
+        const nw = map.project(bounds.getNorthWest(), coords.z);
+
+        const startI = Math.floor((bounds.getSouth() - minLat) / dotH);
+        const endI = Math.floor((bounds.getNorth() - minLat) / dotH);
+        const startJ = Math.floor((bounds.getWest() - minLon) / dotW);
+        const endJ = Math.floor((bounds.getEast() - minLon) / dotW);
+
+        for (const [i, j, count] of renderDots) {
+          if (i >= startI && i <= endI && j >= startJ && j <= endJ) {
+            const idx = getDynamicColorIndex(count);
+            if (idx > -1) {
+              const pNW = map.project([minLat + (i+1)*dotH, minLon + j*dotW], coords.z).subtract(nw);
+              const pSE = map.project([minLat + i*dotH, minLon + (j+1)*dotW], coords.z).subtract(nw);
+              const alpha = coords.z < 7 ? 'FF' : '66'; 
+              ctx.fillStyle = COLORS[idx] + alpha;
+              ctx.fillRect(pNW.x, pNW.y, pSE.x - pNW.x, pSE.y - pNW.y);
+            }
+          }
+        }
+
+        if (coords.z >= 7) {
+          ctx.strokeStyle = 'rgba(100, 116, 139, 0.20)';
+          ctx.lineWidth = 1;
+          for (let i = startI; i <= endI + 1; i++) {
+            const pTile = map.project([minLat + i * dotH, bounds.getWest()], coords.z).subtract(nw);
+            ctx.beginPath(); ctx.moveTo(0, pTile.y); ctx.lineTo(tileSize.x, pTile.y); ctx.stroke();
+          }
+          for (let j = startJ; j <= endJ + 1; j++) {
+            const pTile = map.project([bounds.getNorth(), minLon + j * dotW], coords.z).subtract(nw);
+            ctx.beginPath(); ctx.moveTo(pTile.x, 0); ctx.lineTo(pTile.x, tileSize.y); ctx.stroke();
+          }
+        }
+        return tile;
+      }
+    });
+
+    const ebtGridLayer = new EBTLayer({ 
+      detectRetina: true, 
+      keepBuffer: 1, 
+      updateWhenZooming: false,
+      zIndex: 10
+    }).addTo(map);
+
+    function setPanelCollapsed(panel, collapsed) {
+      const hadFocus = panel.contains(document.activeElement);
+      panel.classList.toggle('collapsed', collapsed);
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('aria-expanded', String(!collapsed));
+      if (collapsed && hadFocus) header.focus();
+    }
+
+    function togglePanel(header) {
+      setPanelCollapsed(header.parentElement, !header.parentElement.classList.contains('collapsed'));
+    }
+
+    function refreshUIState() {
+      updateMaxCount();
+      buildRenderDots();
+      document.getElementById('user-display').textContent = currentUserName;
+      document.getElementById('notes-count').innerHTML = `<b>${formatNumber(totalNotesCount)}</b> notes`;
+      document.getElementById('dots-count').innerHTML = `<b>${formatNumber(dotMap.size)}</b> unique dots conquered`;
+      setPanelCollapsed(document.getElementById('control-panel'), true);
+      ebtGridLayer.redraw();
+      if (currentPos) updateHUD(currentPos[0], currentPos[1]);
+    }
+
+    function saveToStorage() {
+      const ind = document.getElementById('storage-indicator');
+      try {
+        const payload = { user: currentUserName, dots: Object.fromEntries(dotMap) };
+        localStorage.setItem('ebt_cached_profile', JSON.stringify(payload));
+        ind.textContent = 'Saved Offline';
+        ind.style.color = '#047857';
+        ind.removeAttribute('title');
+      } catch (error) {
+        ind.textContent = 'Not saved';
+        ind.style.color = '#b91c1c';
+        ind.title = error?.message || 'Storage unavailable';
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem('ebt_cached_profile');
+        if (!raw) return false;
+        const payload = JSON.parse(raw);
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Invalid profile');
+        
+        const storedDots = payload.dots ?? {};
+        if (typeof storedDots !== 'object' || Array.isArray(storedDots)) throw new Error('Invalid dots');
+        
+        const entries = Object.entries(storedDots);
+        if (!entries.every(([key, value]) => /^-?\d+_-?\d+$/.test(key) && Number.isSafeInteger(value) && value > 0)) {
+          throw new Error('Invalid cached dot value');
+        }
+        
+        currentUserName = payload.user || "EBTor";
+        dotMap.clear();
+        for (const [key, value] of entries) dotMap.set(key, value);
+        
+        refreshUIState();
+        return true;
+      } catch (e) { return false; }
+    }
+
+    async function fetchEBTUsername(userId, version) {
+      try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://en.eurobilltracker.com/profile/?user=' + userId)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(proxyUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (version !== importVersion) return;
+        
+        const match = data.contents.match(/<\/a>\s*([^<]+)\s*<b>\)/i);
+        if (match && match[1].trim()) {
+          currentUserName = match[1].trim();
+          document.getElementById('user-display').textContent = currentUserName;
+          saveToStorage();
+        }
+      } catch (e) {}
+    }
+
+    function parseCoordinate(value) {
+      if (typeof value !== 'string') return NaN;
+      const cleaned = value.trim().replace(/^"/, '').replace(/"$/, '').replace(/,/g, '.');
+      return cleaned === '' ? NaN : Number(cleaned);
+    }
+
+    document.getElementById('csv-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      if (file.size > MAX_CSV_BYTES) {
+        alert('This CSV is too large for safe in-memory processing on a phone.');
+        e.target.value = '';
+        return;
+      }
+
+      const version = ++importVersion;
+      if (activeReader?.readyState === FileReader.LOADING) activeReader.abort();
+      e.target.value = ''; // Allow re-selecting same file
+      
+      const matchId = file.name.match(/notes_entered_by_(\d+)/i);
+      const pendingUserId = matchId?.[1] ?? null;
+      const pendingUserName = pendingUserId ? `User #${pendingUserId}` : 'Unknown EBTor';
+
+      document.getElementById('notes-count').textContent = "Processing CSV...";
+      
+      const reader = activeReader = new FileReader();
+      
+      const failImport = (message) => {
+        if (version !== importVersion) return;
+        refreshUIState();
+        alert(`Import failed: ${message}`);
+      };
+
+      reader.onerror = () => failImport(reader.error?.message || 'The file could not be read.');
+      reader.onabort = () => failImport('The file read was cancelled.');
+      
+      reader.onloadend = () => { if (activeReader === reader) activeReader = null; };
+      
+      reader.onload = function(evt) {
+        if (version !== importVersion) return;
+        try {
+          const lines = evt.target.result.split(/\r?\n/);
+          if (lines.length < 2) throw new Error('The CSV contains no data rows.');
+          
+          let latIdx = -1, lonIdx = -1, startRow = 0;
+          let isEbtExport = lines[0].trim().toLowerCase().startsWith('ebt notes');
+
+          if (isEbtExport) {
+            startRow = 1; 
+          } else {
+            const cleanHeader = val => val.replace(/^\uFEFF/, '').replace(/"/g, '').trim().toLowerCase();
+            const headers = lines[0].split(';').map(cleanHeader);
+            latIdx = headers.findIndex(h => /^(?:lat|latitude)(?:\b|_)/.test(h));
+            lonIdx = headers.findIndex(h => /^(?:lon|lng|long|longitude)(?:\b|_)/.test(h));
+            
+            if (latIdx !== -1 && lonIdx !== -1) startRow = 1;
+            else throw new Error('Latitude/Longitude columns were not found.');
+          }
+
+          const importedDots = new Map();
+          let validCoordinates = 0;
+
+          for (let i = startRow; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const cols = lines[i].split(/;(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            if (cols.length < 2) continue;
+
+            let latStr, lonStr;
+            if (isEbtExport) {
+              latStr = cols[cols.length - 2];
+              lonStr = cols[cols.length - 1];
+            } else {
+              if (cols.length <= Math.max(latIdx, lonIdx)) continue;
+              latStr = cols[latIdx];
+              lonStr = cols[lonIdx];
+            }
+
+            const lat = parseCoordinate(latStr);
+            const lon = parseCoordinate(lonStr);
+            
+            if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+              const key = `${Math.floor((lat - minLat) / dotH)}_${Math.floor((lon - minLon) / dotW)}`;
+              importedDots.set(key, (importedDots.get(key) || 0) + 1);
+              validCoordinates++;
+            }
+          }
+          
+          if (validCoordinates === 0) throw new Error('No valid coordinates were found.');
+          
+          dotMap = importedDots;
+          currentUserName = pendingUserName;
+          refreshUIState();
+          saveToStorage();
+          if (pendingUserId) fetchEBTUsername(pendingUserId, version);
+          
+        } catch (error) {
+          failImport(error instanceof Error ? error.message : 'Unexpected parse error.');
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', function() {
+      if (confirm("Clear all your saved dots from this device?")) {
+        importVersion++;
+        if (activeReader?.readyState === FileReader.LOADING) activeReader.abort();
+        activeReader = null;
+        
+        let cacheRemoved = true;
+        try { localStorage.removeItem('ebt_cached_profile'); } 
+        catch { cacheRemoved = false; }
+        
+        dotMap.clear();
+        currentUserName = "No user loaded";
+        refreshUIState();
+        document.getElementById('notes-count').innerHTML = "<b>0</b> notes";
+        document.getElementById('dots-count').innerHTML = "Grid only (<b>0</b> conquered dots)";
+        
+        const ind = document.getElementById('storage-indicator');
+        ind.textContent = cacheRemoved ? 'Cleared' : 'Session cleared; saved copy remains';
+        ind.style.color = cacheRemoved ? '#047857' : '#b91c1c';
+      }
+    });
+
+    // About Modal A11y Logic
+    const aboutModal = document.getElementById('about-modal');
+    const aboutButton = document.getElementById('about-btn');
+    const aboutClose = document.getElementById('about-close');
+    let aboutReturnFocus = null;
+
+    function setAboutOpen(open) {
+      aboutReturnFocus = open ? document.activeElement : aboutReturnFocus;
+      aboutModal.style.display = open ? 'flex' : 'none';
+      aboutModal.setAttribute('aria-hidden', String(!open));
+      document.querySelectorAll('#control-panel, #hud-panel, #map').forEach(el => { el.inert = open; });
+      if (open) aboutClose.focus();
+      else aboutReturnFocus?.focus();
+    }
+
+    aboutButton.addEventListener('click', () => setAboutOpen(true));
+    aboutClose.addEventListener('click', () => setAboutOpen(false));
+    aboutModal.addEventListener('click', event => { if (event.target === aboutModal) setAboutOpen(false); });
+    document.addEventListener('keydown', event => {
+      if (aboutModal.getAttribute('aria-hidden') === 'true') return;
+      if (event.key === 'Escape') setAboutOpen(false);
+      if (event.key === 'Tab') { event.preventDefault(); aboutClose.focus(); }
+    });
+
+    function createBadge(count) {
+      if (count > 0) return `<span class="stat-badge conquered">${formatNumber(count)} notes</span>`;
+      return `<span class="stat-badge unconquered">UNCONQUERED</span>`;
+    }
+
+    map.on('click', function(e) {
+      const lat = e.latlng.lat, lon = e.latlng.lng;
+      const i = Math.floor((lat - minLat) / dotH), j = Math.floor((lon - minLon) / dotW);
+      const count = dotMap.get(`${i}_${j}`) || 0;
+      const south = (minLat + i * dotH).toFixed(4), north = (minLat + (i + 1) * dotH).toFixed(4);
+      const west = (minLon + j * dotW).toFixed(4), east = (minLon + (j + 1) * dotW).toFixed(4);
+
+      L.popup().setLatLng(e.latlng).setContent(`
+        <div style="font-size:14px; margin-bottom:6px;"><b>Dot [${i}, ${j}]</b></div>
+        <div style="margin-bottom:6px;">${createBadge(count)}</div>
+        <div style="font-size:11px; color:#666; border-top:1px solid #ddd; padding-top:4px;">
+          Lat: ${south}° to ${north}°<br>Lon: ${west}° to ${east}°
+        </div>
+      `).openOn(map);
+    });
+
+    // Radial Radar Search
+    function getNearestUnconquered(lat, lon, currentI, currentJ) {
+      if (!dotMap.has(`${currentI}_${currentJ}`)) return { isHere: true };
+      
+      let minDistance = Infinity;
+      let closestDx = 0, closestDy = 0;
+      let maxRadius = 100;
+      let foundInRing = -1;
+
+      for (let r = 1; r <= maxRadius; r++) {
+        let cells = [];
+        for (let dx = -r; dx <= r; dx++) { cells.push([currentI + dx, currentJ - r]); cells.push([currentI + dx, currentJ + r]); }
+        for (let dy = -r + 1; dy <= r - 1; dy++) { cells.push([currentI - r, currentJ + dy]); cells.push([currentI + r, currentJ + dy]); }
+
+        let ringFound = false;
+        for (const [ci, cj] of cells) {
+          if (!dotMap.has(`${ci}_${cj}`)) {
+            ringFound = true;
+            let cLat = Math.max(minLat + ci * dotH, Math.min(lat, minLat + (ci + 1) * dotH));
+            let cLon = Math.max(minLon + cj * dotW, Math.min(lon, minLon + (cj + 1) * dotW));
+
+            let dy = (cLat - lat) * 111.139;
+            let dx = (cLon - lon) * (111.139 * Math.cos(lat * Math.PI / 180));
+            let dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (dist < minDistance) { minDistance = dist; closestDx = dx; closestDy = dy; }
+          }
+        }
+        if (ringFound && foundInRing === -1) foundInRing = r;
+        if (foundInRing !== -1 && r > foundInRing) break; 
+      }
+
+      if (minDistance === Infinity) return null;
+      let angle = Math.atan2(closestDx, closestDy) * (180 / Math.PI); 
+      return { isHere: false, distance: minDistance, angle: angle };
+    }
+
+    function updateHUD(lat, lon) {
+      const i = Math.floor((lat - minLat) / dotH), j = Math.floor((lon - minLon) / dotW);
+      
+      const nDist = ((minLat + (i + 1) * dotH) - lat) * 111.139;
+      const sDist = (lat - (minLat + i * dotH)) * 111.139;
+      const eDist = ((minLon + (j + 1) * dotW) - lon) * (111.139 * Math.cos(lat * Math.PI / 180));
+      const wDist = (lon - (minLon + j * dotW)) * (111.139 * Math.cos(lat * Math.PI / 180));
+
+      // If no file is loaded, show the raw grid info but hide the radar and badges
+      if (totalNotesCount === 0) {
+        document.getElementById('hud-content').innerHTML = `
+          <div style="margin-bottom: 6px;"><b>Current Dot:</b> [${i}, ${j}]</div>
+          <div style="color: #475569; font-size: 12px; display: flex; gap: 8px;">
+            <div style="white-space: nowrap;"><b>To borders:</b></div>
+            <div>
+              ↑ N: ${nDist.toFixed(1)}km | ↓ S: ${sDist.toFixed(1)}km<br>
+              → E: ${eDist.toFixed(1)}km | ← W: ${wDist.toFixed(1)}km
+            </div>
+          </div>
+          <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; color: #64748b; font-style: italic; text-align: center;">
+            Load your EBT Notes CSV<br>to activate the target radar.
+          </div>
+        `;
+        return;
+      }
+
+      const count = dotMap.get(`${i}_${j}`) || 0;
+      let radarHtml = "";
+      const nearest = getNearestUnconquered(lat, lon, i, j);
+      
+      if (nearest) {
+        if (nearest.isHere) {
+          radarHtml = `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; color: #c2410c; font-weight: 800; font-size: 14px; text-align: center; letter-spacing: 0.5px;">
+            🎯 YOU'RE ON AN UNCONQUERED DOT!
+          </div>`;
+        } else {
+          radarHtml = `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; display: flex; align-items: center; gap: 10px;">
+            <div><b>Nearest Target:</b></div>
+            <div style="color: #c2410c; font-weight: bold; font-size: 14px;">${formatNumber(parseFloat(nearest.distance.toFixed(1)))} km</div>
+            <div style="position: relative; width: 24px; height: 24px; border: 2px solid #cbd5e1; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #f8fafc;">
+              <div style="position: absolute; top: -5px; font-size: 8px; font-weight: 800; color: #475569; background: white; padding: 0 2px; line-height: 1;">N</div>
+              <div style="transform: rotate(${nearest.angle}deg); font-size: 14px; line-height: 1; color: #c2410c; font-weight: bold; margin-top: -1px;">↑</div>
+            </div>
+          </div>`;
+        }
+      }
+
+      document.getElementById('hud-content').innerHTML = `
+        <div style="margin-bottom: 6px;"><b>Current Dot:</b> [${i}, ${j}] ${createBadge(count)}</div>
+        <div style="color: #475569; font-size: 12px; display: flex; gap: 8px;">
+          <div style="white-space: nowrap;"><b>To borders:</b></div>
+          <div>
+            ↑ N: ${nDist.toFixed(1)}km | ↓ S: ${sDist.toFixed(1)}km<br>
+            → E: ${eDist.toFixed(1)}km | ← W: ${wDist.toFixed(1)}km
+          </div>
+        </div>
+        ${radarHtml}
+      `;
+    }
+
+    // Smart GPS State Machine
+    function stopGPS() {
+      if (geoWatchId !== null) navigator.geolocation.clearWatch(geoWatchId);
+      geoWatchId = null;
+    }
+
+    function startGPS() {
+      const status = document.getElementById('gps-status');
+      if (!navigator.geolocation) { status.textContent = 'GPS unavailable'; return; }
+      if (geoWatchId !== null) return;
+      
+      status.textContent = 'Requesting GPS...';
+      
+      // If we don't have a position yet, ensure the clean waiting message is showing
+      if (!currentPos) {
+        document.getElementById('hud-content').innerHTML = `
+          <div style="line-height: 1.5; font-size: 13px;">
+            Allow location access when prompted...
+          </div>
+        `;
+      }
+
+      try {
+        geoWatchId = navigator.geolocation.watchPosition(
+          function onGPSFix(pos) {
+            const { latitude: lat, longitude: lon, accuracy: acc } = pos.coords;
+            const age = Date.now() - pos.timestamp;
+            
+            if (![lat, lon, acc].every(Number.isFinite) || acc > MAX_USABLE_ACCURACY_M || age > MAX_FIX_AGE_MS) {
+              document.getElementById('gps-status').textContent = 'Ignoring a weak or stale GPS fix...';
+              return;
+            }
+            
+            lastFixAt = Date.now();
+            currentPos = [lat, lon];
+            document.getElementById('gps-status').textContent = `GPS Active (±${formatNumber(Math.round(acc))}m)`;
+            
+            if (!marker) {
+              marker = L.circleMarker([lat, lon], { radius: 7, color: '#ea580c', fillColor: '#fb923c', fillOpacity: 0.9 }).addTo(map);
+              map.setView([lat, lon], 12);
+            } else {
+              marker.setLatLng([lat, lon]);
+            }
+            updateHUD(lat, lon);
+          },
+          function onGPSError(err) {
+            const messages = { 1: 'Location permission denied', 2: 'Position unavailable - retrying...', 3: 'GPS timeout - retrying...' };
+            document.getElementById('gps-status').textContent = messages[err.code] || 'GPS error';
+            
+            // If the user dismissed the prompt or denied it (Error 1)
+            if (err.code === 1) {
+              stopGPS();
+              currentPos = null;
+              if (marker) { map.removeLayer(marker); marker = null; }
+              
+              // Inject the retry button into the panel
+              document.getElementById('hud-content').innerHTML = `
+                <div style="line-height: 1.5; font-size: 13px; text-align: center; padding: 4px 0;">
+                  <div style="color: #0f172a; margin-bottom: 8px;">Location access was dismissed or denied.</div>
+                  <button type="button" onclick="stopGPS(); startGPS();" style="background: none; border: none; padding: 0; color: #ea580c; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer;">
+                    Tap here to retry prompt
+                  </button>
+                </div>
+              `;
+            }
+          }, 
+          GEO_OPTIONS
+        );
+      } catch {
+        geoWatchId = null;
+        status.textContent = 'GPS could not be started';
+      }
+    }
+
+    // Visibility Hooks for Battery Saving
+    window.addEventListener('pagehide', stopGPS);
+    window.addEventListener('pageshow', startGPS);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && lastFixAt && Date.now() - lastFixAt > 30000) {
+        document.getElementById('gps-status').textContent = 'GPS stale - waiting for fresh fix...';
+      }
+    });
+
+    // Boot
+    loadFromStorage();
+    if ("geolocation" in navigator) startGPS();
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
