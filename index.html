@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- EBT Dot Safari - v1.9.6 -->
+<!-- EBT Dot Safari - v1.9.7 -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -229,7 +229,7 @@
     let geoWatchId = null;
     let lastFixAt = 0;
 
-    const map = L.map('map', { zoomControl: false }).setView([50.1109, 8.6821], 4);
+    const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([50.1109, 8.6821], 4);
     L.control.zoom({ position: 'topright' }).addTo(map);
 
     const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
