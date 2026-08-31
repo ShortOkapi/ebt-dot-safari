@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- EBT Dot Safari - v1.9.3 (actually = v1.9.2 for index.html; only sw.js & site.webmanifest had to be tweaked) -->
+<!-- EBT Dot Safari - v1.9.4 -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -20,7 +20,8 @@
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <meta name="theme-color" content="#ea580c">
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
   <style>
     * { box-sizing: border-box; }
     html, body, #map { height: 100%; height: 100dvh; }
@@ -200,7 +201,7 @@
 
   <div id="map" role="region" aria-label="Interactive dot map. Use arrow keys to pan and press Enter to inspect the centre dot."></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
   <script>
     const dotH = 0.28;
     const dotW = 66 / 157;
