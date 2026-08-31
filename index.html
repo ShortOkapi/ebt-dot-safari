@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- EBT Dot Safari - v1.9.5 -->
+<!-- EBT Dot Safari - v1.9.6 -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-  <meta name="theme-color" content="#ea580c">
+  <meta name="theme-color" content="#c2410c">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <style>
@@ -62,7 +62,7 @@
 
     .btn-group { display: flex; gap: 8px; }
     .btn {
-      flex: 1; text-align: center; background: #ea580c; color: #fff;
+      flex: 1; text-align: center; background: #c2410c; color: #fff;
       font-weight: 600; font-size: 13px; padding: 9px; border-radius: 8px;
       cursor: pointer; border: none; text-decoration: none; display: inline-block;
       transition: background 0.2s;
@@ -105,11 +105,11 @@
       background: #fff; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.65);
       width: 34px; height: 34px; border: none; padding: 0;
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: #ea580c;
+      cursor: pointer; color: #c2410c;
       margin-bottom: 10px !important; margin-right: 10px !important;
     }
     .leaflet-control-locate:hover { background: #f8fafc; }
-    .leaflet-control-locate:focus-visible { outline: 2px solid #ea580c; outline-offset: 2px; }
+    .leaflet-control-locate:focus-visible { outline: 2px solid #c2410c; outline-offset: 2px; }
     
     /* Make Leaflet Layers button match the Zoom/Locate buttons */
     .leaflet-touch .leaflet-control-layers-toggle {
@@ -200,7 +200,7 @@
 
   <div id="map" role="region" aria-label="Interactive dot map. Use arrow keys to pan and press Enter to inspect the centre dot."></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
     const dotH = 0.28;
     const dotW = 66 / 157;
@@ -765,7 +765,7 @@
             document.getElementById('gps-status').textContent = `GPS Active (±${formatNumber(Math.round(acc))}m)`;
             
             if (!marker) {
-              marker = L.circleMarker([lat, lon], { radius: 7, color: '#ea580c', fillColor: '#fb923c', fillOpacity: 0.9 }).addTo(map);
+              marker = L.circleMarker([lat, lon], { radius: 7, color: '#c2410c', fillColor: '#fb923c', fillOpacity: 0.9 }).addTo(map);
               map.setView([lat, lon], 12);
             } else {
               marker.setLatLng([lat, lon]);
@@ -786,7 +786,7 @@
               document.getElementById('hud-content').innerHTML = `
                 <div style="line-height: 1.5; font-size: 13px; text-align: center; padding: 4px 0;">
                   <div style="color: #0f172a; margin-bottom: 8px;">Location access was dismissed or denied.</div>
-                  <button type="button" onclick="stopGPS(); startGPS();" style="background: none; border: none; padding: 0; color: #ea580c; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer;">
+                  <button type="button" onclick="stopGPS(); startGPS();" style="background: none; border: none; padding: 0; color: #c2410c; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer;">
                     Tap here to retry prompt
                   </button>
                 </div>
