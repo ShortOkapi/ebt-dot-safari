@@ -1,4 +1,5 @@
-const CACHE_NAME = 'ebt-dot-safari-v1.9.8';
+const APP_VERSION = '1.9.9';
+const CACHE_NAME = `ebt-dot-safari-v${APP_VERSION}`;
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -12,6 +13,12 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
+
+self.addEventListener('message', event => {
+  if (event.data === 'GET_APP_VERSION') {
+    event.ports[0]?.postMessage(APP_VERSION);
+  }
+});
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE)));

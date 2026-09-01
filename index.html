@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- EBT Dot Safari - v1.9.8 -->
+<!-- EBT Dot Safari -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -191,7 +191,7 @@
   <div id="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
     <div class="about-dialog">
       <button id="about-close" type="button" aria-label="Close" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b;">✖</button>
-      <h2 id="about-title" style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px;">EBT Dot Safari</h2>
+      <h2 id="about-title" style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px;">EBT Dot Safari <span id="app-version" hidden style="font-size: 12px; font-weight: 500; color: #64748b;"></span></h2>
       <p style="margin: 0 0 16px 0; font-size: 13px; color: #64748b; font-style: italic;">A long-awaited tool for EuroBillTracker map dot hunters.</p>
       <div style="font-size: 13px; color: #334155; line-height: 1.5; display: flex; flex-direction: column; gap: 12px;">
         <div>Ferran (<b>Tuscac</b>, from Girona 🇪🇸) was the latest of several EBTors over the past few years to ask for live GPS tracking on their personal Google Dotmaps.</div>
@@ -876,11 +876,41 @@
     if ("geolocation" in navigator) startGPS();
 
     // PWA Service Worker Registration
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-      });
-    }
+function showAppVersion(worker) {
+  if (!worker) return;
+
+  const channel = new MessageChannel();
+  const timeoutId = setTimeout(() => channel.port1.close(), 3000);
+
+  channel.port1.onmessage = event => {
+    clearTimeout(timeoutId);
+
+    const versionElement = document.getElementById('app-version');
+    versionElement.textContent = `v${event.data}`;
+    versionElement.hidden = false;
+
+    channel.port1.close();
+  };
+
+  worker.postMessage('GET_APP_VERSION', [channel.port2]);
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const pageWorker = navigator.serviceWorker.controller;
+      if (pageWorker) showAppVersion(pageWorker);
+
+      await navigator.serviceWorker.register('./sw.js');
+
+      if (!pageWorker) {
+        const registration = await navigator.serviceWorker.ready;
+        showAppVersion(registration.active);
+      }
+    } catch {}
+  });
+}
+
   </script>
 </body>
 </html>
