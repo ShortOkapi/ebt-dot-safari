@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- EBT Dot Safari - v1.9.7 -->
+<!-- EBT Dot Safari - v1.9.8 -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -19,6 +19,9 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <meta name="theme-color" content="#c2410c">
+
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <style>
@@ -198,7 +201,7 @@
     </div>
   </div>
 
-  <div id="map" role="region" aria-label="Interactive dot map. Use arrow keys to pan and press Enter to inspect the centre dot."></div>
+  <main id="map" aria-label="Interactive dot map. Use arrow keys to pan and press Enter to inspect the centre dot."></main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
@@ -210,7 +213,7 @@
     const COLORS = ["#ffeda0", "#fed976", "#feb24c", "#fd8d3c", "#fc4e2a", "#e31a1c", "#bd0026", "#800026"];
 
     let dotMap = new Map();
-    let renderDots = [];
+    let renderRows = new Map();
     let maxNotesPerDot = 1;
     let totalNotesCount = 0;
     let currentPos = null;
@@ -311,12 +314,20 @@
       return Math.max(1, index); 
     }
 
-    // Pre-calculate rendering array to save RAM & CPU on pan
-    function buildRenderDots() {
-      renderDots = Array.from(dotMap, ([key, count]) => {
+    // Index rendered cells by grid row so each tile examines fewer dots
+    function buildRenderRows() {
+      renderRows = new Map();
+
+      for (const [key, count] of dotMap) {
         const separator = key.indexOf('_');
-        return [ Number(key.slice(0, separator)), Number(key.slice(separator + 1)), count ];
-      });
+        const i = Number(key.slice(0, separator));
+        const j = Number(key.slice(separator + 1));
+        const cell = [j, getDynamicColorIndex(count)];
+        const row = renderRows.get(i);
+
+        if (row) row.push(cell);
+        else renderRows.set(i, [cell]);
+      }
     }
 
     const EBTLayer = L.GridLayer.extend({
@@ -342,16 +353,32 @@
         const startJ = Math.floor((bounds.getWest() - minLon) / dotW);
         const endJ = Math.floor((bounds.getEast() - minLon) / dotW);
 
-        for (const [i, j, count] of renderDots) {
-          if (i >= startI && i <= endI && j >= startJ && j <= endJ) {
-            const idx = getDynamicColorIndex(count);
-            if (idx > -1) {
-              const pNW = map.project([minLat + (i+1)*dotH, minLon + j*dotW], coords.z).subtract(nw);
-              const pSE = map.project([minLat + i*dotH, minLon + (j+1)*dotW], coords.z).subtract(nw);
-              const alpha = coords.z < 7 ? 'FF' : '66'; 
-              ctx.fillStyle = COLORS[idx] + alpha;
-              ctx.fillRect(pNW.x, pNW.y, pSE.x - pNW.x, pSE.y - pNW.y);
-            }
+        const alpha = coords.z < 7 ? 'FF' : '66';
+
+        for (let i = startI; i <= endI; i++) {
+          const row = renderRows.get(i);
+          if (!row) continue;
+
+          for (const [j, idx] of row) {
+            if (j < startJ || j > endJ || idx < 0) continue;
+
+            const pNW = map.project(
+              [minLat + (i + 1) * dotH, minLon + j * dotW],
+              coords.z
+            ).subtract(nw);
+
+            const pSE = map.project(
+              [minLat + i * dotH, minLon + (j + 1) * dotW],
+              coords.z
+            ).subtract(nw);
+
+            ctx.fillStyle = COLORS[idx] + alpha;
+            ctx.fillRect(
+              pNW.x,
+              pNW.y,
+              pSE.x - pNW.x,
+              pSE.y - pNW.y
+            );
           }
         }
 
@@ -392,7 +419,7 @@
 
     function refreshUIState() {
       updateMaxCount();
-      buildRenderDots();
+      buildRenderRows();
       document.getElementById('user-display').textContent = currentUserName;
       document.getElementById('notes-count').innerHTML = `<b>${formatNumber(totalNotesCount)}</b> notes`;
       document.getElementById('dots-count').innerHTML = `<b>${formatNumber(dotMap.size)}</b> unique dots conquered`;
@@ -466,6 +493,33 @@
       return cleaned === '' ? NaN : Number(cleaned);
     }
 
+    function splitSemicolonRow(line) {
+      const columns = [];
+      let start = 0;
+      let quoted = false;
+
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') {
+          if (quoted && line[i + 1] === '"') i++;
+          else quoted = !quoted;
+        } else if (line[i] === ';' && !quoted) {
+          columns.push(line.slice(start, i));
+          start = i + 1;
+        }
+      }
+
+      columns.push(line.slice(start));
+      return columns;
+    }
+
+    function yieldToMain() {
+      if (typeof globalThis.scheduler?.yield === 'function') {
+        return globalThis.scheduler.yield();
+      }
+
+      return new Promise(resolve => setTimeout(resolve, 0));
+    }
+
     document.getElementById('csv-input').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -499,7 +553,7 @@
       
       reader.onloadend = () => { if (activeReader === reader) activeReader = null; };
       
-      reader.onload = function(evt) {
+      reader.onload = async function(evt) {
         if (version !== importVersion) return;
         try {
           const lines = evt.target.result.split(/\r?\n/);
@@ -512,7 +566,7 @@
             startRow = 1; 
           } else {
             const cleanHeader = val => val.replace(/^\uFEFF/, '').replace(/"/g, '').trim().toLowerCase();
-            const headers = lines[0].split(';').map(cleanHeader);
+            const headers = splitSemicolonRow(lines[0]).map(cleanHeader);
             latIdx = headers.findIndex(h => /^(?:lat|latitude)(?:\b|_)/.test(h));
             lonIdx = headers.findIndex(h => /^(?:lon|lng|long|longitude)(?:\b|_)/.test(h));
             
@@ -522,10 +576,17 @@
 
           const importedDots = new Map();
           let validCoordinates = 0;
+          let sliceStarted = performance.now();
 
           for (let i = startRow; i < lines.length; i++) {
+            if (performance.now() - sliceStarted >= 12) {
+              await yieldToMain();
+              if (version !== importVersion) return;
+              sliceStarted = performance.now();
+            }
+
             if (!lines[i].trim()) continue;
-            const cols = lines[i].split(/;(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const cols = splitSemicolonRow(lines[i]);
             if (cols.length < 2) continue;
 
             let latStr, lonStr;
