@@ -15,5 +15,5 @@ A live GPS tracking tool and heatmap for EuroBillTracker map dot hunters.
 
 ## Credits
 * **Direction**: Miguel Viterbo (lmviterbo)
-* **Code Generation**: Google Gemini
+* **Code Generation**: Google Gemini, tweaked by Claude and ChatGPT
 * **Audit & Testing**: Peter Zagler (elpeza s̶p̶a̶s̶i̶b̶a̶)
