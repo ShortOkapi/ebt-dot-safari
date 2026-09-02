@@ -6,12 +6,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>EBT Dot Safari</title>
   <meta name="description" content="A live GPS tracking tool and heatmap for EuroBillTracker map dot hunters." />
-  
+  <link rel="canonical" href="https://shortokapi.github.io/ebt-dot-safari/" />
+  <meta name="application-name" content="EBT Dot Safari" />
+  <meta name="apple-mobile-web-app-title" content="EBT Dot Safari" />
+
   <!-- Open Graph / SEO -->
   <meta property="og:title" content="EBT Dot Safari" />
   <meta property="og:description" content="A live GPS tracking tool and heatmap for EuroBillTracker map dot hunters." />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://ebt-dotsafari-map.netlify.app/apple-touch-icon.png" />
+  <meta property="og:url" content="https://shortokapi.github.io/ebt-dot-safari/" />
+  <meta property="og:site_name" content="EBT Dot Safari" />
+  <meta property="og:image" content="https://shortokapi.github.io/ebt-dot-safari/android-chrome-512x512.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="EBT Dot Safari app icon" />
   
   <!-- PWA Manifest & Icons -->
   <link rel="manifest" href="site.webmanifest">
@@ -52,10 +61,14 @@
       top: max(12px, env(safe-area-inset-top)); 
       max-height: calc(100dvh - 24px - env(safe-area-inset-top));
     }
-    #hud-panel { 
-      bottom: max(12px, env(safe-area-inset-bottom));
-      max-height: calc(100dvh - 74px - env(safe-area-inset-bottom));
+    #hud-panel {
+      bottom: calc(27px + env(safe-area-inset-bottom));
+      max-height: calc(100dvh - 89px - env(safe-area-inset-bottom));
       margin: 0;
+    }
+
+    .leaflet-bottom {
+      bottom: env(safe-area-inset-bottom);
     }
     
     .panel-header {
@@ -225,8 +238,28 @@
     .btn:active { background: #9a3412; }
     .btn:focus-visible { outline: 2px solid #0f172a; outline-offset: 2px; }
     
-    .btn-clear { background: #ef4444; color: white; flex: 0 0 40px; font-size: 16px; padding: 0; display: flex; align-items: center; justify-content: center; }
-    .btn-clear:active { background: #b91c1c; }
+    .btn-clear {
+      background: #ef4444;
+      color: white;
+      flex: 0 0 40px;
+      font-size: 16px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-clear:not(:disabled):active {
+      background: #b91c1c;
+    }
+
+    .btn-clear:disabled {
+      background: #cbd5e1;
+      color: #64748b;
+      -webkit-text-fill-color: #64748b;
+      opacity: 1;
+      cursor: not-allowed;
+    }
     
     .btn-about { background: #475569; color: white; flex: 0 0 40px; font-size: 16px; padding: 0; display: flex; align-items: center; justify-content: center; }
     .btn-about:active { background: #334155; }
@@ -301,7 +334,10 @@
         </button>
         <input type="file" id="csv-input" accept=".csv,text/csv" tabindex="-1" />
         <button class="btn btn-about" type="button" id="about-btn" aria-label="About" title="About / Credits">ℹ️</button>
-        <button class="btn btn-clear" type="button" id="clear-btn" aria-label="Clear conquered dots" title="Clear conquered dots">☒</button>
+        <button class="btn btn-clear" type="button" id="clear-btn"
+          aria-label="No conquered dots to clear"
+          title="No conquered dots to clear"
+          disabled>☒</button>
       </div>
 
       <div id="stats-container" class="status-box" role="status" aria-live="polite" aria-atomic="true">
@@ -397,7 +433,7 @@
     const dotH = 0.28;
     const dotW = 66 / 157;
     const minLat = -89.72;
-    const minLon = -178.89171974522293;
+    const minLon = -(178 + 140 / 157); // Legacy EBT grid origin; do not alter
 
     const COLORS = ["#ffeda0", "#fed976", "#feb24c", "#fd8d3c", "#fc4e2a", "#e31a1c", "#bd0026", "#800026"];
 
@@ -615,12 +651,29 @@
     function refreshUIState() {
       updateMaxCount();
       buildRenderRows();
+
       document.getElementById('user-display').textContent = currentUserName;
-      document.getElementById('notes-count').innerHTML = `<b>${formatNumber(totalNotesCount)}</b> notes`;
-      document.getElementById('dots-count').innerHTML = `<b>${formatNumber(dotMap.size)}</b> unique dots conquered`;
+      document.getElementById('notes-count').innerHTML =
+        `<b>${formatNumber(totalNotesCount)}</b> notes`;
+      document.getElementById('dots-count').innerHTML =
+        `<b>${formatNumber(dotMap.size)}</b> unique dots conquered`;
+
+      const clearButton = document.getElementById('clear-btn');
+      const hasConqueredDots = dotMap.size > 0;
+      const clearDescription = hasConqueredDots
+        ? 'Clear conquered dots'
+        : 'No conquered dots to clear';
+
+      clearButton.disabled = !hasConqueredDots;
+      clearButton.title = clearDescription;
+      clearButton.setAttribute('aria-label', clearDescription);
+
       setPanelCollapsed(document.getElementById('control-panel'), true);
       ebtGridLayer.redraw();
-      if (currentPos) updateHUD(currentPos[0], currentPos[1]);
+
+      if (currentPos) {
+        updateHUD(currentPos[0], currentPos[1]);
+      }
     }
 
     function saveToStorage() {
