@@ -58,10 +58,162 @@
       margin: 0;
     }
     
-    .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-radius: 4px; padding: 2px; }
-    .panel-header:focus-visible { outline: 2px solid #c2410c; outline-offset: 4px; }
+    .panel-header {
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 4px;
+      padding: 2px;
+    }
+    .panel-toggle {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      appearance: none;
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    
+    .panel-toggle:focus-visible {
+      outline: 2px solid #c2410c;
+      outline-offset: 4px;
+    }
+
     .panel-content { margin-top: 10px; display: block; }
     .collapsed .panel-content { display: none; }
+
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .target-summary {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .target-visual {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .target-label-short { display: none; }
+
+    .target-value {
+      flex: 0 0 auto;
+      color: #c2410c;
+      font-size: 14px;
+    }
+
+    .target-compass {
+      position: relative;
+      flex: 0 0 24px;
+      width: 24px;
+      height: 24px;
+      border: 2px solid #cbd5e1;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #f8fafc;
+    }
+
+    .target-compass[hidden] { display: none; }
+
+    .target-north {
+      position: absolute;
+      top: -5px;
+      padding: 0 2px;
+      background: white;
+      color: #475569;
+      font-size: 8px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .target-arrow {
+      margin-top: -1px;
+      color: #c2410c;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .gps-summary {
+      flex: 0 0 auto;
+      margin-left: 8px;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .hud-details {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .hud-details.hud-location-message {
+      color: #64748b;
+      font-style: italic;
+      text-align: center;
+    }
+
+    .gps-status {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #cbd5e1;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    .gps-retry {
+      margin-left: 6px;
+      padding: 0;
+      background: none;
+      border: 0;
+      color: #c2410c;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .gps-retry:focus-visible {
+      outline: 2px solid #c2410c;
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 359px) {
+      .target-label-long { display: none; }
+      .target-label-short { display: inline; }
+      .gps-summary { margin-left: 6px; }
+    }
 
     .btn-group { display: flex; gap: 8px; }
     .btn {
@@ -130,9 +282,16 @@
 
   <!-- Controls Panel -->
   <div id="control-panel" class="panel">
-    <div class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="control-content" onclick="togglePanel(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); togglePanel(this);}">
+    <div class="panel-header">
       <h1 style="font-size: 15px; color: #0f172a; margin: 0; padding: 0;">EBT Dot Safari</h1>
       <span id="storage-indicator" style="font-size: 11px; color: #047857; font-weight: 700;">Ready</span>
+      <button class="panel-toggle" type="button"
+        aria-label="Collapse controls"
+        aria-expanded="true"
+        aria-controls="control-content"
+        data-panel-label="controls"
+        onclick="togglePanel(this)">
+      </button>
     </div>
 
     <div id="control-content" class="panel-content">
@@ -176,13 +335,43 @@
 
   <!-- Radar HUD Panel -->
   <div id="hud-panel" class="panel">
-    <div class="panel-header" role="button" tabindex="0" aria-expanded="true" aria-controls="hud-content" onclick="togglePanel(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); togglePanel(this);}">
-      <b style="color: #0f172a; font-size: 14px;">Target Compass</b>
-      <span id="gps-status" style="color: #64748b; font-size: 11px; font-weight: 600;">Requesting GPS...</span>
+    <div class="panel-header">
+      <div id="target-summary" class="target-summary">
+        <span class="target-visual" aria-hidden="true">
+          <span id="target-label-long" class="target-label-long">Nearest Target:</span>
+          <span id="target-label-short" class="target-label-short">Target:</span>
+          <span id="target-value" class="target-value">—</span>
+          <span id="target-compass" class="target-compass" hidden>
+            <span class="target-north">N</span>
+            <span id="target-arrow" class="target-arrow">↑</span>
+          </span>
+        </span>
+        <span id="target-accessible-text" class="visually-hidden">Nearest target unavailable</span>
+      </div>
+
+      <div id="gps-summary" class="gps-summary" role="status" aria-live="polite" aria-atomic="true">
+        <span aria-hidden="true">GPS <span id="gps-icon">⏳</span></span>
+        <span id="gps-accessible-text" class="visually-hidden">GPS requesting location</span>
+      </div>
+
+      <button class="panel-toggle" type="button"
+        aria-label="Collapse target information"
+        aria-expanded="true"
+        aria-controls="hud-content"
+        data-panel-label="target information"
+        onclick="togglePanel(this)"></button>
     </div>
+
     <div id="hud-content" class="panel-content">
-      <div style="line-height: 1.5; font-size: 13px;">
+      <div id="hud-details" class="hud-details hud-location-message">
         Allow location access when prompted...
+      </div>
+
+      <div id="gps-status" class="gps-status">
+        <span id="gps-message">Requesting GPS...</span>
+        <button id="gps-retry" class="gps-retry" type="button" hidden>
+          Tap here to retry GPS
+        </button>
       </div>
     </div>
   </div>
@@ -408,13 +597,19 @@
     function setPanelCollapsed(panel, collapsed) {
       const hadFocus = panel.contains(document.activeElement);
       panel.classList.toggle('collapsed', collapsed);
-      const header = panel.querySelector('.panel-header');
-      header.setAttribute('aria-expanded', String(!collapsed));
-      if (collapsed && hadFocus) header.focus();
+
+      const toggle = panel.querySelector('.panel-toggle');
+      const action = collapsed ? 'Expand' : 'Collapse';
+
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      toggle.setAttribute('aria-label', `${action} ${toggle.dataset.panelLabel}`);
+
+      if (collapsed && hadFocus) toggle.focus();
     }
 
-    function togglePanel(header) {
-      setPanelCollapsed(header.parentElement, !header.parentElement.classList.contains('collapsed'));
+    function togglePanel(toggle) {
+      const panel = toggle.closest('.panel');
+      setPanelCollapsed(panel, !panel.classList.contains('collapsed'));
     }
 
     function refreshUIState() {
@@ -728,17 +923,69 @@
       return { isHere: false, distance: minDistance, angle: angle };
     }
 
+    function setTargetSummary(nearest) {
+      const longLabel = document.getElementById('target-label-long');
+      const shortLabel = document.getElementById('target-label-short');
+      const value = document.getElementById('target-value');
+      const compass = document.getElementById('target-compass');
+      const arrow = document.getElementById('target-arrow');
+      const accessibleText = document.getElementById('target-accessible-text');
+
+      if (!nearest) {
+        longLabel.textContent = 'Nearest Target:';
+        shortLabel.textContent = 'Target:';
+        value.textContent = '—';
+        compass.hidden = true;
+        accessibleText.textContent = 'Nearest target unavailable';
+        return;
+      }
+
+      if (nearest.isHere) {
+        longLabel.textContent = 'Unconquered dot';
+        shortLabel.textContent = 'Unconquered';
+        value.textContent = '🎯';
+        compass.hidden = true;
+        accessibleText.textContent = 'You are on an unconquered dot';
+        return;
+      }
+
+      const roundedDistance = Number(nearest.distance.toFixed(1));
+      const angle = ((nearest.angle % 360) + 360) % 360;
+
+      longLabel.textContent = 'Nearest Target:';
+      shortLabel.textContent = 'Target:';
+      value.textContent = `${formatNumber(roundedDistance)} km`;
+      compass.hidden = false;
+      arrow.style.transform = `rotate(${angle}deg)`;
+      accessibleText.textContent =
+        `Nearest target ${roundedDistance} kilometres away, bearing ${Math.round(angle)} degrees`;
+    }
+
+    function showLocationMessage(message) {
+      const details = document.getElementById('hud-details');
+      details.classList.add('hud-location-message');
+      details.textContent = message;
+      setTargetSummary(null);
+    }
+
     function updateHUD(lat, lon) {
-      const i = Math.floor((lat - minLat) / dotH), j = Math.floor((lon - minLon) / dotW);
-      
+      const hudDetails = document.getElementById('hud-details');
+      hudDetails.classList.remove('hud-location-message');
+
+      const i = Math.floor((lat - minLat) / dotH);
+      const j = Math.floor((lon - minLon) / dotW);
+
       const nDist = ((minLat + (i + 1) * dotH) - lat) * 111.139;
       const sDist = (lat - (minLat + i * dotH)) * 111.139;
-      const eDist = ((minLon + (j + 1) * dotW) - lon) * (111.139 * Math.cos(lat * Math.PI / 180));
-      const wDist = (lon - (minLon + j * dotW)) * (111.139 * Math.cos(lat * Math.PI / 180));
+      const eDist = ((minLon + (j + 1) * dotW) - lon) *
+        (111.139 * Math.cos(lat * Math.PI / 180));
+      const wDist = (lon - (minLon + j * dotW)) *
+        (111.139 * Math.cos(lat * Math.PI / 180));
 
-      // If no file is loaded, show the raw grid info but hide the radar and badges
       if (totalNotesCount === 0) {
-        document.getElementById('hud-content').innerHTML = `
+        setTargetSummary(null);
+
+        hudDetails.innerHTML = `
           <div style="margin-bottom: 6px;"><b>Current Dot:</b> [${i}, ${j}]</div>
           <div style="color: #475569; font-size: 12px; display: flex; gap: 8px;">
             <div style="white-space: nowrap;"><b>To borders:</b></div>
@@ -755,28 +1002,14 @@
       }
 
       const count = dotMap.get(`${i}_${j}`) || 0;
-      let radarHtml = "";
       const nearest = getNearestUnconquered(lat, lon, i, j);
-      
-      if (nearest) {
-        if (nearest.isHere) {
-          radarHtml = `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; color: #c2410c; font-weight: 800; font-size: 14px; text-align: center; letter-spacing: 0.5px;">
-            🎯 YOU'RE ON AN UNCONQUERED DOT!
-          </div>`;
-        } else {
-          radarHtml = `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; display: flex; align-items: center; gap: 10px;">
-            <div><b>Nearest Target:</b></div>
-            <div style="color: #c2410c; font-weight: bold; font-size: 14px;">${formatNumber(parseFloat(nearest.distance.toFixed(1)))} km</div>
-            <div style="position: relative; width: 24px; height: 24px; border: 2px solid #cbd5e1; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #f8fafc;">
-              <div style="position: absolute; top: -5px; font-size: 8px; font-weight: 800; color: #475569; background: white; padding: 0 2px; line-height: 1;">N</div>
-              <div style="transform: rotate(${nearest.angle}deg); font-size: 14px; line-height: 1; color: #c2410c; font-weight: bold; margin-top: -1px;">↑</div>
-            </div>
-          </div>`;
-        }
-      }
 
-      document.getElementById('hud-content').innerHTML = `
-        <div style="margin-bottom: 6px;"><b>Current Dot:</b> [${i}, ${j}] ${createBadge(count)}</div>
+      setTargetSummary(nearest);
+
+      hudDetails.innerHTML = `
+        <div style="margin-bottom: 6px;">
+          <b>Current Dot:</b> [${i}, ${j}] ${createBadge(count)}
+        </div>
         <div style="color: #475569; font-size: 12px; display: flex; gap: 8px;">
           <div style="white-space: nowrap;"><b>To borders:</b></div>
           <div>
@@ -784,30 +1017,75 @@
             → E: ${eDist.toFixed(1)}km | ← W: ${wDist.toFixed(1)}km
           </div>
         </div>
-        ${radarHtml}
       `;
     }
 
     // Smart GPS State Machine
+    const GPS_PRESENTATION = {
+      requesting: {
+        icon: '⏳',
+        label: 'GPS requesting location',
+        color: '#64748b'
+      },
+      active: {
+        icon: '✅',
+        label: 'GPS active',
+        color: '#047857'
+      },
+      waiting: {
+        icon: '⏳',
+        label: 'GPS waiting for a usable position',
+        color: '#64748b'
+      },
+      warning: {
+        icon: '⚠️',
+        label: 'GPS problem',
+        color: '#b45309'
+      },
+      unavailable: {
+        icon: '❌',
+        label: 'GPS unavailable',
+        color: '#b91c1c'
+      }
+    };
+
+    let currentGPSState = null;
+
+    function setGPSState(state, message, showRetry = false) {
+      const presentation = GPS_PRESENTATION[state] || GPS_PRESENTATION.warning;
+      const gpsSummary = document.getElementById('gps-summary');
+      const gpsStatus = document.getElementById('gps-status');
+
+      if (state !== currentGPSState) {
+        document.getElementById('gps-icon').textContent = presentation.icon;
+        document.getElementById('gps-accessible-text').textContent = presentation.label;
+        currentGPSState = state;
+      }
+
+      gpsSummary.style.color = presentation.color;
+      gpsStatus.style.color = presentation.color;
+      document.getElementById('gps-message').textContent = message;
+      document.getElementById('gps-retry').hidden = !showRetry;
+    }
+
     function stopGPS() {
       if (geoWatchId !== null) navigator.geolocation.clearWatch(geoWatchId);
       geoWatchId = null;
     }
 
     function startGPS() {
-      const status = document.getElementById('gps-status');
-      if (!navigator.geolocation) { status.textContent = 'GPS unavailable'; return; }
+      if (!navigator.geolocation) {
+        setGPSState('unavailable', 'GPS unavailable');
+        showLocationMessage('Location services are not available in this browser.');
+        return;
+      }
+
       if (geoWatchId !== null) return;
-      
-      status.textContent = 'Requesting GPS...';
-      
-      // If we don't have a position yet, ensure the clean waiting message is showing
+
+      setGPSState('requesting', 'Requesting GPS...');
+
       if (!currentPos) {
-        document.getElementById('hud-content').innerHTML = `
-          <div style="line-height: 1.5; font-size: 13px;">
-            Allow location access when prompted...
-          </div>
-        `;
+        showLocationMessage('Allow location access when prompted...');
       }
 
       try {
@@ -815,65 +1093,124 @@
           function onGPSFix(pos) {
             const { latitude: lat, longitude: lon, accuracy: acc } = pos.coords;
             const age = Date.now() - pos.timestamp;
-            
-            if (![lat, lon, acc].every(Number.isFinite) || acc > MAX_USABLE_ACCURACY_M || age > MAX_FIX_AGE_MS) {
-              document.getElementById('gps-status').textContent = 'Ignoring a weak or stale GPS fix...';
+
+            if (
+              ![lat, lon, acc, age].every(Number.isFinite) ||
+              Math.abs(lat) > 90 ||
+              Math.abs(lon) > 180 ||
+              acc < 0 ||
+              acc > MAX_USABLE_ACCURACY_M ||
+              age > MAX_FIX_AGE_MS
+            ) {
+              setGPSState('waiting', 'Ignoring a weak or stale GPS fix...');
+
+              if (!currentPos) {
+                showLocationMessage('Waiting for a usable GPS position...');
+              }
+
               return;
             }
-            
+
             lastFixAt = Date.now();
             currentPos = [lat, lon];
-            document.getElementById('gps-status').textContent = `GPS Active (±${formatNumber(Math.round(acc))}m)`;
-            
+
+            setGPSState(
+              'active',
+              `GPS active (±${formatNumber(Math.round(acc))}m)`
+            );
+
             if (!marker) {
-              marker = L.circleMarker([lat, lon], { radius: 7, color: '#c2410c', fillColor: '#fb923c', fillOpacity: 0.9 }).addTo(map);
+              marker = L.circleMarker([lat, lon], {
+                radius: 7,
+                color: '#c2410c',
+                fillColor: '#fb923c',
+                fillOpacity: 0.9
+              }).addTo(map);
+
               map.setView([lat, lon], 12);
             } else {
               marker.setLatLng([lat, lon]);
             }
+
             updateHUD(lat, lon);
           },
+
           function onGPSError(err) {
-            const messages = { 1: 'Location permission denied', 2: 'Position unavailable - retrying...', 3: 'GPS timeout - retrying...' };
-            document.getElementById('gps-status').textContent = messages[err.code] || 'GPS error';
-            
-            // If the user dismissed the prompt or denied it (Error 1)
             if (err.code === 1) {
               stopGPS();
               currentPos = null;
-              if (marker) { map.removeLayer(marker); marker = null; }
-              
-              // Inject the retry button into the panel
-              document.getElementById('hud-content').innerHTML = `
-                <div style="line-height: 1.5; font-size: 13px; text-align: center; padding: 4px 0;">
-                  <div style="color: #0f172a; margin-bottom: 8px;">Location access was dismissed or denied.</div>
-                  <button type="button" onclick="stopGPS(); startGPS();" style="background: none; border: none; padding: 0; color: #c2410c; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer;">
-                    Tap here to retry prompt
-                  </button>
-                </div>
-              `;
+              lastFixAt = 0;
+
+              if (marker) {
+                map.removeLayer(marker);
+                marker = null;
+              }
+
+              setGPSState(
+                'unavailable',
+                'Location permission denied',
+                true
+              );
+
+              showLocationMessage(
+                'Location is needed to calculate your current dot and nearest target.'
+              );
+
+              return;
             }
-          }, 
+
+            if (err.code === 2) {
+              setGPSState(
+                'waiting',
+                'Position unavailable - retrying...'
+              );
+            } else if (err.code === 3) {
+              setGPSState(
+                'waiting',
+                'GPS timeout - retrying...'
+              );
+            } else {
+              setGPSState('warning', 'GPS error');
+            }
+
+            if (!currentPos) {
+              showLocationMessage('Waiting for a usable GPS position...');
+            }
+          },
+
           GEO_OPTIONS
         );
       } catch {
         geoWatchId = null;
-        status.textContent = 'GPS could not be started';
+        setGPSState('unavailable', 'GPS could not be started', true);
+
+        if (!currentPos) {
+          showLocationMessage('GPS could not be started on this device.');
+        }
       }
     }
+
+    document.getElementById('gps-retry').addEventListener('click', () => {
+      stopGPS();
+      startGPS();
+    });
 
     // Visibility Hooks for Battery Saving
     window.addEventListener('pagehide', stopGPS);
     window.addEventListener('pageshow', startGPS);
+
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && lastFixAt && Date.now() - lastFixAt > 30000) {
-        document.getElementById('gps-status').textContent = 'GPS stale - waiting for fresh fix...';
+        setGPSState(
+          'waiting',
+          'GPS stale - waiting for fresh fix...'
+        );
       }
     });
 
     // Boot
     loadFromStorage();
-    if ("geolocation" in navigator) startGPS();
+    startGPS();
 
     // PWA Service Worker Registration
 function showAppVersion(worker) {
