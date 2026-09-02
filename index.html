@@ -225,8 +225,28 @@
     .btn:active { background: #9a3412; }
     .btn:focus-visible { outline: 2px solid #0f172a; outline-offset: 2px; }
     
-    .btn-clear { background: #ef4444; color: white; flex: 0 0 40px; font-size: 16px; padding: 0; display: flex; align-items: center; justify-content: center; }
-    .btn-clear:active { background: #b91c1c; }
+    .btn-clear {
+      background: #ef4444;
+      color: white;
+      flex: 0 0 40px;
+      font-size: 16px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-clear:not(:disabled):active {
+      background: #b91c1c;
+    }
+
+    .btn-clear:disabled {
+      background: #cbd5e1;
+      color: #64748b;
+      -webkit-text-fill-color: #64748b;
+      opacity: 1;
+      cursor: not-allowed;
+    }
     
     .btn-about { background: #475569; color: white; flex: 0 0 40px; font-size: 16px; padding: 0; display: flex; align-items: center; justify-content: center; }
     .btn-about:active { background: #334155; }
@@ -301,7 +321,10 @@
         </button>
         <input type="file" id="csv-input" accept=".csv,text/csv" tabindex="-1" />
         <button class="btn btn-about" type="button" id="about-btn" aria-label="About" title="About / Credits">ℹ️</button>
-        <button class="btn btn-clear" type="button" id="clear-btn" aria-label="Clear conquered dots" title="Clear conquered dots">☒</button>
+        <button class="btn btn-clear" type="button" id="clear-btn"
+          aria-label="No conquered dots to clear"
+          title="No conquered dots to clear"
+          disabled>☒</button>
       </div>
 
       <div id="stats-container" class="status-box" role="status" aria-live="polite" aria-atomic="true">
@@ -615,12 +638,29 @@
     function refreshUIState() {
       updateMaxCount();
       buildRenderRows();
+
       document.getElementById('user-display').textContent = currentUserName;
-      document.getElementById('notes-count').innerHTML = `<b>${formatNumber(totalNotesCount)}</b> notes`;
-      document.getElementById('dots-count').innerHTML = `<b>${formatNumber(dotMap.size)}</b> unique dots conquered`;
+      document.getElementById('notes-count').innerHTML =
+        `<b>${formatNumber(totalNotesCount)}</b> notes`;
+      document.getElementById('dots-count').innerHTML =
+        `<b>${formatNumber(dotMap.size)}</b> unique dots conquered`;
+
+      const clearButton = document.getElementById('clear-btn');
+      const hasConqueredDots = dotMap.size > 0;
+      const clearDescription = hasConqueredDots
+        ? 'Clear conquered dots'
+        : 'No conquered dots to clear';
+
+      clearButton.disabled = !hasConqueredDots;
+      clearButton.title = clearDescription;
+      clearButton.setAttribute('aria-label', clearDescription);
+
       setPanelCollapsed(document.getElementById('control-panel'), true);
       ebtGridLayer.redraw();
-      if (currentPos) updateHUD(currentPos[0], currentPos[1]);
+
+      if (currentPos) {
+        updateHUD(currentPos[0], currentPos[1]);
+      }
     }
 
     function saveToStorage() {
