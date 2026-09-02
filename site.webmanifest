@@ -1,12 +1,24 @@
 {
-  "name": "EBT Dot Hunter Safari",
+  "id": "/ebt-dot-safari/",
+  "name": "EBT Dot Safari",
   "short_name": "Dot Safari",
-  "icons": [
-    { "src": "android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
-  ],
-  "theme_color": "#0284c7",
-  "background_color": "#e5e5e5",
+  "description": "A live GPS tracking tool and heatmap for EuroBillTracker map dot hunters.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "start_url": "./"
+  "theme_color": "#c2410c",
+  "background_color": "#e5e5e5",
+  "icons": [
+    {
+      "src": "./android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }

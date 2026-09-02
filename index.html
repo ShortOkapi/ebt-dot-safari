@@ -6,12 +6,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>EBT Dot Safari</title>
   <meta name="description" content="A live GPS tracking tool and heatmap for EuroBillTracker map dot hunters." />
-  
+  <link rel="canonical" href="https://shortokapi.github.io/ebt-dot-safari/" />
+  <meta name="application-name" content="EBT Dot Safari" />
+  <meta name="apple-mobile-web-app-title" content="EBT Dot Safari" />
+
   <!-- Open Graph / SEO -->
   <meta property="og:title" content="EBT Dot Safari" />
   <meta property="og:description" content="A live GPS tracking tool and heatmap for EuroBillTracker map dot hunters." />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="https://ebt-dotsafari-map.netlify.app/apple-touch-icon.png" />
+  <meta property="og:url" content="https://shortokapi.github.io/ebt-dot-safari/" />
+  <meta property="og:site_name" content="EBT Dot Safari" />
+  <meta property="og:image" content="https://shortokapi.github.io/ebt-dot-safari/android-chrome-512x512.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="EBT Dot Safari app icon" />
   
   <!-- PWA Manifest & Icons -->
   <link rel="manifest" href="site.webmanifest">
@@ -52,10 +61,14 @@
       top: max(12px, env(safe-area-inset-top)); 
       max-height: calc(100dvh - 24px - env(safe-area-inset-top));
     }
-    #hud-panel { 
-      bottom: max(12px, env(safe-area-inset-bottom));
-      max-height: calc(100dvh - 74px - env(safe-area-inset-bottom));
+    #hud-panel {
+      bottom: calc(27px + env(safe-area-inset-bottom));
+      max-height: calc(100dvh - 89px - env(safe-area-inset-bottom));
       margin: 0;
+    }
+
+    .leaflet-bottom {
+      bottom: env(safe-area-inset-bottom);
     }
     
     .panel-header {
