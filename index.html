@@ -460,8 +460,9 @@
     
     // File Parser State
     let importVersion = 0;
-    let activeReader = null;
-    const MAX_CSV_BYTES = 40 * 1024 * 1024; // 40MB limit for mobile browsers
+    const CSV_CHUNK_BYTES = 1024 * 1024;
+    const MAX_CSV_LINE_CHARS = 2 * 1024 * 1024;
+    const IMPORT_TIME_SLICE_MS = 12;
 
     // GPS State
     const MAX_USABLE_ACCURACY_M = 1000;
@@ -774,6 +775,60 @@
       return columns;
     }
 
+    function getEbtCoordinateColumns(line) {
+      const lonSeparator = line.lastIndexOf(';');
+      if (lonSeparator === -1) return null;
+
+      const latSeparator = line.lastIndexOf(';', lonSeparator - 1);
+      if (latSeparator === -1) return null;
+
+      return [
+        line.slice(latSeparator + 1, lonSeparator),
+        line.slice(lonSeparator + 1)
+      ];
+    }
+
+    async function* readCsvLines(file, version, reportProgress) {
+      const decoder = new TextDecoder();
+      let offset = 0;
+      let carry = '';
+
+      while (offset < file.size) {
+        if (version !== importVersion) return;
+
+        const end = Math.min(offset + CSV_CHUNK_BYTES, file.size);
+        const bytes = await file.slice(offset, end).arrayBuffer();
+        if (version !== importVersion) return;
+
+        carry += decoder.decode(bytes, { stream: true });
+        let lineStart = 0;
+
+        while (true) {
+          const newline = carry.indexOf('\n', lineStart);
+          if (newline === -1) break;
+
+          let line = carry.slice(lineStart, newline);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          yield line;
+
+          if (version !== importVersion) return;
+          lineStart = newline + 1;
+        }
+
+        carry = carry.slice(lineStart);
+        if (carry.length > MAX_CSV_LINE_CHARS) {
+          throw new Error('A CSV row is unexpectedly large or line breaks are missing.');
+        }
+
+        offset = end;
+        reportProgress(offset / file.size);
+      }
+
+      carry += decoder.decode();
+      if (carry.endsWith('\r')) carry = carry.slice(0, -1);
+      if (carry !== '') yield carry;
+    }
+
     function yieldToMain() {
       if (typeof globalThis.scheduler?.yield === 'function') {
         return globalThis.scheduler.yield();
@@ -782,115 +837,147 @@
       return new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    document.getElementById('csv-input').addEventListener('change', function(e) {
+    document.getElementById('csv-input').addEventListener('change', async function(e) {
       const file = e.target.files[0];
       if (!file) return;
-      
-      if (file.size > MAX_CSV_BYTES) {
-        alert('This CSV is too large for safe in-memory processing on a phone.');
-        e.target.value = '';
+
+      e.target.value = ''; // Allow re-selecting the same file
+      const version = ++importVersion;
+      const statsContainer = document.getElementById('stats-container');
+      const notesCount = document.getElementById('notes-count');
+
+      if (file.size === 0) {
+        statsContainer.removeAttribute('aria-busy');
+        refreshUIState();
+        setPanelCollapsed(document.getElementById('control-panel'), false);
+        alert('Import failed: The selected CSV is empty.');
         return;
       }
 
-      const version = ++importVersion;
-      if (activeReader?.readyState === FileReader.LOADING) activeReader.abort();
-      e.target.value = ''; // Allow re-selecting same file
-      
       const matchId = file.name.match(/notes_entered_by_(\d+)/i);
       const pendingUserId = matchId?.[1] ?? null;
       const pendingUserName = pendingUserId ? `User #${pendingUserId}` : 'Unknown EBTor';
 
-      document.getElementById('notes-count').textContent = "Processing CSV...";
-      
-      const reader = activeReader = new FileReader();
-      
+      statsContainer.setAttribute('aria-busy', 'true');
+      notesCount.textContent = 'Processing CSV… 0%';
+
       const failImport = (message) => {
         if (version !== importVersion) return;
         refreshUIState();
+        setPanelCollapsed(document.getElementById('control-panel'), false);
         alert(`Import failed: ${message}`);
       };
 
-      reader.onerror = () => failImport(reader.error?.message || 'The file could not be read.');
-      reader.onabort = () => failImport('The file read was cancelled.');
-      
-      reader.onloadend = () => { if (activeReader === reader) activeReader = null; };
-      
-      reader.onload = async function(evt) {
-        if (version !== importVersion) return;
-        try {
-          const lines = evt.target.result.split(/\r?\n/);
-          if (lines.length < 2) throw new Error('The CSV contains no data rows.');
-          
-          let latIdx = -1, lonIdx = -1, startRow = 0;
-          let isEbtExport = lines[0].trim().toLowerCase().startsWith('ebt notes');
+      try {
+        const importedDots = new Map();
+        let validCoordinates = 0;
+        let dataRows = 0;
+        let sawFirstLine = false;
+        let isEbtExport = false;
+        let latIdx = -1;
+        let lonIdx = -1;
+        let lastProgress = -1;
+        let sliceStarted = performance.now();
+
+        const reportProgress = fraction => {
+          if (version !== importVersion) return;
+
+          const percent = Math.min(99, Math.floor(fraction * 100));
+          if (percent === lastProgress) return;
+
+          lastProgress = percent;
+          notesCount.textContent = `Processing CSV… ${percent}%`;
+        };
+
+        for await (const line of readCsvLines(file, version, reportProgress)) {
+          if (version !== importVersion) return;
+
+          if (!sawFirstLine) {
+            sawFirstLine = true;
+            isEbtExport = line.trim().toLowerCase().startsWith('ebt notes');
+
+            if (!isEbtExport) {
+              const cleanHeader = value => value
+                .replace(/^\uFEFF/, '')
+                .replace(/"/g, '')
+                .trim()
+                .toLowerCase();
+              const headers = splitSemicolonRow(line).map(cleanHeader);
+              latIdx = headers.findIndex(header => /^(?:lat|latitude)(?:\b|_)/.test(header));
+              lonIdx = headers.findIndex(header => /^(?:lon|lng|long|longitude)(?:\b|_)/.test(header));
+
+              if (latIdx === -1 || lonIdx === -1) {
+                throw new Error('Latitude/Longitude columns were not found.');
+              }
+            }
+
+            continue;
+          }
+
+          if (performance.now() - sliceStarted >= IMPORT_TIME_SLICE_MS) {
+            await yieldToMain();
+            if (version !== importVersion) return;
+            sliceStarted = performance.now();
+          }
+
+          if (!line.trim()) continue;
+          dataRows++;
+
+          let latStr;
+          let lonStr;
 
           if (isEbtExport) {
-            startRow = 1; 
+            const coordinates = getEbtCoordinateColumns(line);
+            if (!coordinates) continue;
+            [latStr, lonStr] = coordinates;
           } else {
-            const cleanHeader = val => val.replace(/^\uFEFF/, '').replace(/"/g, '').trim().toLowerCase();
-            const headers = splitSemicolonRow(lines[0]).map(cleanHeader);
-            latIdx = headers.findIndex(h => /^(?:lat|latitude)(?:\b|_)/.test(h));
-            lonIdx = headers.findIndex(h => /^(?:lon|lng|long|longitude)(?:\b|_)/.test(h));
-            
-            if (latIdx !== -1 && lonIdx !== -1) startRow = 1;
-            else throw new Error('Latitude/Longitude columns were not found.');
+            const columns = splitSemicolonRow(line);
+            if (columns.length <= Math.max(latIdx, lonIdx)) continue;
+            latStr = columns[latIdx];
+            lonStr = columns[lonIdx];
           }
 
-          const importedDots = new Map();
-          let validCoordinates = 0;
-          let sliceStarted = performance.now();
+          const lat = parseCoordinate(latStr);
+          const lon = parseCoordinate(lonStr);
 
-          for (let i = startRow; i < lines.length; i++) {
-            if (performance.now() - sliceStarted >= 12) {
-              await yieldToMain();
-              if (version !== importVersion) return;
-              sliceStarted = performance.now();
-            }
-
-            if (!lines[i].trim()) continue;
-            const cols = splitSemicolonRow(lines[i]);
-            if (cols.length < 2) continue;
-
-            let latStr, lonStr;
-            if (isEbtExport) {
-              latStr = cols[cols.length - 2];
-              lonStr = cols[cols.length - 1];
-            } else {
-              if (cols.length <= Math.max(latIdx, lonIdx)) continue;
-              latStr = cols[latIdx];
-              lonStr = cols[lonIdx];
-            }
-
-            const lat = parseCoordinate(latStr);
-            const lon = parseCoordinate(lonStr);
-            
-            if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
-              const key = `${Math.floor((lat - minLat) / dotH)}_${Math.floor((lon - minLon) / dotW)}`;
-              importedDots.set(key, (importedDots.get(key) || 0) + 1);
-              validCoordinates++;
-            }
+          if (
+            Number.isFinite(lat) &&
+            Number.isFinite(lon) &&
+            Math.abs(lat) <= 90 &&
+            Math.abs(lon) <= 180
+          ) {
+            const key = `${Math.floor((lat - minLat) / dotH)}_${Math.floor((lon - minLon) / dotW)}`;
+            importedDots.set(key, (importedDots.get(key) || 0) + 1);
+            validCoordinates++;
           }
-          
-          if (validCoordinates === 0) throw new Error('No valid coordinates were found.');
-          
-          dotMap = importedDots;
-          currentUserName = pendingUserName;
-          refreshUIState();
-          saveToStorage();
-          if (pendingUserId) fetchEBTUsername(pendingUserId, version);
-          
-        } catch (error) {
-          failImport(error instanceof Error ? error.message : 'Unexpected parse error.');
         }
-      };
-      reader.readAsText(file);
+
+        if (version !== importVersion) return;
+        if (!sawFirstLine || dataRows === 0) {
+          throw new Error('The CSV contains no data rows.');
+        }
+        if (validCoordinates === 0) {
+          throw new Error('No valid coordinates were found.');
+        }
+
+        dotMap = importedDots;
+        currentUserName = pendingUserName;
+        refreshUIState();
+        saveToStorage();
+        if (pendingUserId) fetchEBTUsername(pendingUserId, version);
+      } catch (error) {
+        failImport(error instanceof Error ? error.message : 'Unexpected parse error.');
+      } finally {
+        if (version === importVersion) {
+          statsContainer.removeAttribute('aria-busy');
+        }
+      }
     });
 
     document.getElementById('clear-btn').addEventListener('click', function() {
       if (confirm("Clear all your saved dots from this device?")) {
         importVersion++;
-        if (activeReader?.readyState === FileReader.LOADING) activeReader.abort();
-        activeReader = null;
+        document.getElementById('stats-container').removeAttribute('aria-busy');
         
         let cacheRemoved = true;
         try { localStorage.removeItem('ebt_cached_profile'); } 
