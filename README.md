@@ -14,12 +14,12 @@ A live GPS map and heatmap for EuroBillTracker dot hunters.
 
 *Already downloaded a fresh Notes file? Skip step 2.*
 
-If you deny location access, enable it later in your browser or app settings and reopen Dot Safari.
+If location access is not granted, reopen Dot Safari to try again. If it remains blocked, enable it in your browser or app settings.
 
 ## Install on your home screen
 
 - **iPhone:** Open EBT Dot Safari in Safari, tap **Share**, then **Add to Home Screen**.
-- **Android:** Open EBT Dot Safari in Chrome, open the browser menu, then choose **Install app** or **Add to Home screen**.
+- **Android:** Open EBT Dot Safari in Chrome, wait for the page to finish loading, open the browser menu, then choose **Install app**. On some versions, this option appears inside **Add to Home screen**.
 
 The precise menu wording may vary between browser versions.
 
