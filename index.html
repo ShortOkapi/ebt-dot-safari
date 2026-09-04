@@ -747,7 +747,7 @@
       clearButton.setAttribute('aria-label', clearDescription);
       document.getElementById('csv-help').hidden = hasConqueredDots;
       document.getElementById('csv-reload-btn').hidden = !hasConqueredDots;
-      
+
       setPanelCollapsed(document.getElementById('control-panel'), true);
       ebtGridLayer.redraw();
 
@@ -1139,10 +1139,13 @@
 
     // Radial Radar Search
     function getNearestUnconquered(lat, lon, currentI, currentJ) {
-      if (!dotMap.has(`${currentI}_${currentJ}`)) return { isHere: true };
-      
+      if (!dotMap.has(`${currentI}_${currentJ}`)) {
+        return { isHere: true, i: currentI, j: currentJ };
+      }
+
       let minDistance = Infinity;
       let closestDx = 0, closestDy = 0;
+      let closestI = null, closestJ = null;
       let maxRadius = 100;
       let foundInRing = -1;
 
@@ -1162,7 +1165,13 @@
             let dx = (cLon - lon) * (111.139 * Math.cos(lat * Math.PI / 180));
             let dist = Math.sqrt(dx*dx + dy*dy);
 
-            if (dist < minDistance) { minDistance = dist; closestDx = dx; closestDy = dy; }
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestDx = dx;
+              closestDy = dy;
+              closestI = ci;
+              closestJ = cj;
+            }
           }
         }
         if (ringFound && foundInRing === -1) foundInRing = r;
@@ -1171,7 +1180,13 @@
 
       if (minDistance === Infinity) return null;
       let angle = Math.atan2(closestDx, closestDy) * (180 / Math.PI); 
-      return { isHere: false, distance: minDistance, angle: angle };
+      return {
+        isHere: false,
+        distance: minDistance,
+        angle: angle,
+        i: closestI,
+        j: closestJ
+      };
     }
 
     function setTargetSummary(nearest) {
@@ -1196,7 +1211,8 @@
         shortLabel.textContent = 'Unconquered';
         value.textContent = '🎯';
         compass.hidden = true;
-        accessibleText.textContent = 'You are on an unconquered dot';
+        accessibleText.textContent =
+          `You are on unconquered dot ${nearest.i}, ${nearest.j}`;
         return;
       }
 
@@ -1209,7 +1225,7 @@
       compass.hidden = false;
       arrow.style.transform = `rotate(${angle}deg)`;
       accessibleText.textContent =
-        `Nearest target ${roundedDistance} kilometres away, bearing ${Math.round(angle)} degrees`;
+        `Nearest target dot ${nearest.i}, ${nearest.j}, ${roundedDistance} kilometres away, bearing ${Math.round(angle)} degrees`;
     }
 
     function showLocationMessage(message) {
@@ -1226,47 +1242,31 @@
       const i = Math.floor((lat - minLat) / dotH);
       const j = Math.floor((lon - minLon) / dotW);
 
-      const nDist = ((minLat + (i + 1) * dotH) - lat) * 111.139;
-      const sDist = (lat - (minLat + i * dotH)) * 111.139;
-      const eDist = ((minLon + (j + 1) * dotW) - lon) *
-        (111.139 * Math.cos(lat * Math.PI / 180));
-      const wDist = (lon - (minLon + j * dotW)) *
-        (111.139 * Math.cos(lat * Math.PI / 180));
-
       if (totalNotesCount === 0) {
         setTargetSummary(null);
 
         hudDetails.innerHTML = `
           <div style="margin-bottom: 6px;"><b>Current Dot:</b> [${i}, ${j}]</div>
-          <div style="color: #475569; font-size: 12px; display: flex; gap: 8px;">
-            <div style="white-space: nowrap;"><b>To borders:</b></div>
-            <div>
-              ↑ N: ${nDist.toFixed(1)}km | ↓ S: ${sDist.toFixed(1)}km<br>
-              → E: ${eDist.toFixed(1)}km | ← W: ${wDist.toFixed(1)}km
-            </div>
-          </div>
           <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; color: #64748b; font-style: italic; text-align: center;">
-            Load your EBT Notes CSV<br>to activate the target radar.
+            Load your EBT Notes file<br>to activate the target radar.
           </div>
         `;
         return;
       }
 
-      const count = dotMap.get(`${i}_${j}`) || 0;
       const nearest = getNearestUnconquered(lat, lon, i, j);
+      const targetReference = nearest
+        ? `[${nearest.i}, ${nearest.j}]`
+        : '—';
 
       setTargetSummary(nearest);
 
       hudDetails.innerHTML = `
         <div style="margin-bottom: 6px;">
-          <b>Current Dot:</b> [${i}, ${j}] ${createBadge(count)}
+          <b>Current Dot:</b> [${i}, ${j}]
         </div>
-        <div style="color: #475569; font-size: 12px; display: flex; gap: 8px;">
-          <div style="white-space: nowrap;"><b>To borders:</b></div>
-          <div>
-            ↑ N: ${nDist.toFixed(1)}km | ↓ S: ${sDist.toFixed(1)}km<br>
-            → E: ${eDist.toFixed(1)}km | ← W: ${wDist.toFixed(1)}km
-          </div>
+        <div>
+          <b>Target Dot:</b> ${targetReference}
         </div>
       `;
     }
