@@ -19,7 +19,7 @@ If location access is not granted, reopen Dot Safari to try again. If it remains
 ## Install on your home screen
 
 - **iPhone:** Open EBT Dot Safari in Safari, tap **Share**, then **Add to Home Screen**.
-- **Android:** Open EBT Dot Safari in Chrome, wait for the page to finish loading, open the browser menu, then choose **Install app**. On some versions, this option appears inside **Add to Home screen**.
+- **Android:** Open EBT Dot Safari in Chrome and wait for the **Install Dot Safari** invitation. If it does not appear, refresh the page once, then open Chrome’s menu and choose **Install app**. On some versions, this option appears inside **Add to Home screen**.
 
 The precise menu wording may vary between browser versions.
 
