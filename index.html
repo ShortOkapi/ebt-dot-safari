@@ -188,6 +188,19 @@
       line-height: 1.5;
     }
 
+    .hud-dot-references {
+      display: grid;
+      grid-template-columns: max-content max-content;
+      column-gap: 6px;
+      row-gap: 4px;
+      align-items: baseline;
+    }
+
+    .hud-dot-reference {
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
     .hud-details.hud-location-message {
       color: #64748b;
       font-style: italic;
@@ -1271,11 +1284,11 @@
       setTargetSummary(nearest);
 
       hudDetails.innerHTML = `
-        <div style="margin-bottom: 6px;">
-          <b>Current Dot:</b> [${i}, ${j}]
-        </div>
-        <div>
-          <b>Nearest Unconquered Dot:</b> ${targetReference}
+        <div class="hud-dot-references">
+          <b>Current Dot:</b>
+          <span class="hud-dot-reference">[${i}, ${j}]</span>
+          <b>Nearest Unconquered Dot:</b>
+          <span class="hud-dot-reference">${targetReference}</span>
         </div>
       `;
     }
@@ -1408,12 +1421,11 @@
 
               setGPSState(
                 'unavailable',
-                'Location permission denied',
-                true
+                'Location access blocked. Enable it in your browser or app settings, then reopen Dot Safari.'
               );
 
               showLocationMessage(
-                'Location is needed to calculate your current dot and nearest target.'
+                'Location is needed to calculate your current dot and nearest unconquered dot.'
               );
 
               return;

@@ -14,6 +14,8 @@ A live GPS map and heatmap for EuroBillTracker dot hunters.
 
 *Already downloaded a fresh Notes file? Skip step 2.*
 
+If you deny location access, enable it later in your browser or app settings and reopen Dot Safari.
+
 ## Install on your home screen
 
 - **iPhone:** Open EBT Dot Safari in Safari, tap **Share**, then **Add to Home Screen**.
