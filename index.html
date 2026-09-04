@@ -228,13 +228,14 @@
       .gps-summary { margin-left: 6px; }
     }
 
-    .btn-group { display: flex; gap: 8px; }
+    .btn-group { display: flex; justify-content: flex-end; gap: 8px; }
     .btn {
       flex: 1; text-align: center; background: #c2410c; color: #fff;
       font-weight: 600; font-size: 13px; padding: 9px; border-radius: 8px;
       cursor: pointer; border: none; text-decoration: none; display: inline-block;
       transition: background 0.2s;
     }
+    .btn[hidden] { display: none; }
     .btn:active { background: #9a3412; }
     .btn:focus-visible { outline: 2px solid #0f172a; outline-offset: 2px; }
     
@@ -378,19 +379,30 @@
 
     <div id="control-content" class="panel-content">
       <div id="csv-help" class="csv-help">
-        <div class="csv-help-title">1. Download your EBT Notes file</div>
-        <span class="csv-help-note">Log in to EBT first. Its smaller “censored” file contains everything Dot Safari needs.</span>
+        <div class="csv-help-title">1. Download a fresh EBT Notes file</div>
+        <span class="csv-help-note"><em>Already downloaded a fresh file? Go directly to step 2.</em></span>
+        <span class="csv-help-note">If necessary, EBT will ask you to sign in.</span>
+
         <a class="btn"
           href="https://eurobilltracker.com/my_notes/?tab=5;censored=yes"
-          target="_blank" rel="noopener noreferrer"
-          aria-label="Download the smaller censored EBT Notes CSV from EuroBillTracker; opens separately in your browser">
-          Download smaller “censored” CSV ↗
+          aria-label="Download a fresh EBT Notes CSV from EuroBillTracker">
+          ⬇ Download from EBT
         </a>
-        <div class="csv-help-next"><strong>2.</strong> Return here and tap <strong>📁 Load EBT Notes File</strong>.</div>
+
+        <div class="csv-help-next"><strong>2. Return to Dot Safari</strong></div>
+        <span class="csv-help-note">Choose the most recently downloaded file.</span>
+
+        <button class="btn" type="button"
+          onclick="document.getElementById('csv-input').click()"
+          aria-label="Load EBT Notes File">
+          📁 Load EBT Notes File
+        </button>
       </div>
 
       <div class="btn-group">
-        <button class="btn" type="button" onclick="document.getElementById('csv-input').click()" aria-label="Load EBT Notes File">
+        <button id="csv-reload-btn" class="btn" type="button" hidden
+          onclick="document.getElementById('csv-input').click()"
+          aria-label="Load another EBT Notes File">
           📁 Load EBT Notes File
         </button>
         <input type="file" id="csv-input" accept=".csv,text/csv" tabindex="-1" />
@@ -734,7 +746,8 @@
       clearButton.title = clearDescription;
       clearButton.setAttribute('aria-label', clearDescription);
       document.getElementById('csv-help').hidden = hasConqueredDots;
-
+      document.getElementById('csv-reload-btn').hidden = !hasConqueredDots;
+      
       setPanelCollapsed(document.getElementById('control-panel'), true);
       ebtGridLayer.redraw();
 
