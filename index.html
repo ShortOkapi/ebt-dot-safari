@@ -782,26 +782,6 @@
       } catch (e) { return false; }
     }
 
-    async function fetchEBTUsername(userId, version) {
-      try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://en.eurobilltracker.com/profile/?user=' + userId)}`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch(proxyUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (version !== importVersion) return;
-        
-        const match = data.contents.match(/<\/a>\s*([^<]+)\s*<b>\)/i);
-        if (match && match[1].trim()) {
-          currentUserName = match[1].trim();
-          document.getElementById('user-display').textContent = currentUserName;
-          saveToStorage();
-        }
-      } catch (e) {}
-    }
-
     function parseCoordinate(value) {
       if (typeof value !== 'string') return NaN;
       const cleaned = value.trim().replace(/^"/, '').replace(/"$/, '').replace(/,/g, '.');
@@ -1016,7 +996,6 @@
         currentUserName = pendingUserName;
         refreshUIState();
         saveToStorage();
-        if (pendingUserId) fetchEBTUsername(pendingUserId, version);
       } catch (error) {
         failImport(error instanceof Error ? error.message : 'Unexpected parse error.');
       } finally {
