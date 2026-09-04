@@ -29,7 +29,7 @@ The download button obtains the smaller file that EBT calls its “censored” N
 
 - **Conquered-dot heatmap:** Displays your personal EBT dot map and note counts.
 - **Live target compass:** Uses GPS to estimate the straight-line distance and direction to the nearest unconquered dot.
-- **Dot information:** Shows the current dot, target dot (nearest unconquered dot), and individual dot statistics.
+- **Dot information:** Shows the current dot, nearest unconquered dot, and individual dot statistics.
 - **Installable:** Can be added to your phone’s home screen and used like an app.
 
 ## Offline use
@@ -46,5 +46,5 @@ Dot Safari grid references are written as `[south-to-north index, west-to-east i
 
 ## Credits
 * **Direction**: Miguel Viterbo (lmviterbo)
-* **Code Generation**: Google Gemini, tweaked by Claude and ChatGPT
+* **Code Generation**: AI relay — Gemini → Claude → ChatGPT
 * **Audit & Testing**: Peter Zagler (elpeza s̶p̶a̶s̶i̶b̶a̶)
