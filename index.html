@@ -35,9 +35,21 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <style>
     * { box-sizing: border-box; }
-    html, body, #map { height: 100%; height: 100dvh; }
-    body { margin: 0; padding: 0; width: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #e5e5e5; overflow: hidden; }
-    #map { width: 100%; }
+    html { height: 100%; overflow: hidden; }
+    body {
+      position: fixed;
+      top: var(--app-top, 0px);
+      left: 0;
+      width: 100%;
+      height: 100%;
+      height: var(--app-height, 100dvh);
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #e5e5e5;
+      overflow: hidden;
+    }
+    #map { width: 100%; height: 100%; }
 
     .panel {
       position: absolute; z-index: 1000;
@@ -59,11 +71,11 @@
     }
     #control-panel { 
       top: max(12px, env(safe-area-inset-top)); 
-      max-height: calc(100dvh - 24px - env(safe-area-inset-top));
+      max-height: calc(var(--app-height, 100dvh) - 24px - env(safe-area-inset-top));
     }
     #hud-panel {
       bottom: calc(27px + env(safe-area-inset-bottom));
-      max-height: calc(100dvh - 89px - env(safe-area-inset-bottom));
+      max-height: calc(var(--app-height, 100dvh) - 89px - env(safe-area-inset-bottom));
       margin: 0;
     }
 
@@ -355,7 +367,7 @@
     .about-dialog {
       background: white; padding: 24px; border-radius: 12px; max-width: 450px; position: relative; 
       box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-      max-height: calc(100dvh - 40px); overflow: auto; -webkit-overflow-scrolling: touch;
+      max-height: calc(var(--app-height, 100dvh) - 40px); overflow: auto; -webkit-overflow-scrolling: touch;
     }
     
     .about-share-section {
@@ -503,7 +515,7 @@
   </div>
 
   <!-- About Modal -->
-  <div id="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
+  <div id="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
     <div class="about-dialog">
       <button id="about-close" type="button" aria-label="Close" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b;">✖</button>
       <h2 id="about-title" style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px;">EBT Dot Safari <span id="app-version" hidden style="font-size: 12px; font-weight: 500; color: #64748b;"></span></h2>
@@ -560,6 +572,9 @@
     let marker = null;
     let geoWatchId = null;
     let lastFixAt = 0;
+    let gpsStartedAt = 0;
+    let gpsRun = 0;
+    let gpsPermissionDenied = false;
 
     const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([50.1109, 8.6821], 4);
     L.control.zoom({ position: 'topright' }).addTo(map);
@@ -1359,11 +1374,14 @@
     }
 
     function stopGPS() {
+      gpsRun++;
       if (geoWatchId !== null) navigator.geolocation.clearWatch(geoWatchId);
       geoWatchId = null;
     }
 
     function startGPS() {
+      if (document.hidden) return;
+
       if (!navigator.geolocation) {
         setGPSState('unavailable', 'GPS unavailable');
         showLocationMessage('Location services are not available in this browser.');
@@ -1378,9 +1396,14 @@
         showLocationMessage('Allow location access when prompted...');
       }
 
+      const run = ++gpsRun;
+      gpsStartedAt = Date.now();
+      gpsPermissionDenied = false;
+
       try {
         geoWatchId = navigator.geolocation.watchPosition(
           function onGPSFix(pos) {
+            if (run !== gpsRun || document.hidden) return;
             const { latitude: lat, longitude: lon, accuracy: acc } = pos.coords;
             const age = Date.now() - pos.timestamp;
 
@@ -1401,7 +1424,7 @@
               return;
             }
 
-            lastFixAt = Date.now();
+            lastFixAt = pos.timestamp;
             currentPos = [lat, lon];
 
             setGPSState(
@@ -1426,7 +1449,10 @@
           },
 
           function onGPSError(err) {
+            if (run !== gpsRun) return;
+
             if (err.code === 1) {
+              gpsPermissionDenied = true;
               stopGPS();
               currentPos = null;
               lastFixAt = 0;
@@ -1470,7 +1496,7 @@
           GEO_OPTIONS
         );
       } catch {
-        geoWatchId = null;
+        stopGPS();
         setGPSState('unavailable', 'GPS could not be started', true);
 
         if (!currentPos) {
@@ -1484,22 +1510,76 @@
       startGPS();
     });
 
-    // Visibility Hooks for Battery Saving
-    window.addEventListener('pagehide', stopGPS);
-    window.addEventListener('pageshow', startGPS);
+    // Keep the map and panels within the visible screen area.
+    let layoutFrame = null;
+    let layoutTimer = null;
 
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && lastFixAt && Date.now() - lastFixAt > 30000) {
-        setGPSState(
-          'waiting',
-          'GPS stale - waiting for fresh fix...'
-        );
+    function syncAppLayout() {
+      if (document.hidden) return;
+
+      const viewport = window.visualViewport;
+      // Preserve normal page magnification for accessibility.
+      if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
+
+      const height = viewport ? viewport.height : window.innerHeight;
+      const top = viewport ? viewport.offsetTop : 0;
+      if (!Number.isFinite(height) || height <= 0 || !Number.isFinite(top)) return;
+
+      document.documentElement.style.setProperty('--app-height', `${height}px`);
+      document.documentElement.style.setProperty('--app-top', `${Math.max(0, top)}px`);
+      map.invalidateSize({ pan: false, debounceMoveend: true });
+    }
+
+    function scheduleAppLayout() {
+      if (document.hidden || layoutFrame !== null) return;
+      layoutFrame = requestAnimationFrame(() => {
+        layoutFrame = null;
+        syncAppLayout();
+      });
+    }
+
+    function resumeApp() {
+      if (document.hidden) return;
+
+      const viewport = window.visualViewport;
+      if (!viewport || Math.abs(viewport.scale - 1) <= 0.01) {
+        window.scrollTo(0, 0);
       }
+      scheduleAppLayout();
+      clearTimeout(layoutTimer);
+      layoutTimer = setTimeout(scheduleAppLayout, 250);
+
+      // Automatic returns must not repeat a denied permission request.
+      if (gpsPermissionDenied) return;
+      const lastActivity = Math.max(lastFixAt, gpsStartedAt);
+      if (geoWatchId !== null && Date.now() - lastActivity > 30000) {
+        stopGPS();
+      }
+      startGPS();
+    }
+
+    function suspendApp() {
+      stopGPS();
+      if (layoutFrame !== null) cancelAnimationFrame(layoutFrame);
+      layoutFrame = null;
+      clearTimeout(layoutTimer);
+      layoutTimer = null;
+    }
+
+    window.addEventListener('resize', scheduleAppLayout);
+    window.visualViewport?.addEventListener('resize', scheduleAppLayout);
+    window.visualViewport?.addEventListener('scroll', scheduleAppLayout);
+    window.addEventListener('pagehide', suspendApp);
+    window.addEventListener('pageshow', resumeApp);
+    window.addEventListener('focus', resumeApp);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) suspendApp();
+      else resumeApp();
     });
 
     // Boot
     loadFromStorage();
-    startGPS();
+    resumeApp();
 
     // PWA Service Worker Registration
 function showAppVersion(worker) {
