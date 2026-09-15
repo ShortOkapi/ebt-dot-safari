@@ -190,13 +190,53 @@
     }
 
     .gps-summary {
+      position: relative;
+      z-index: 2;
       flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 58px;
+      min-height: 44px;
       margin-left: 8px;
+      padding: 4px 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
       color: #64748b;
+      font-family: inherit;
       font-size: 11px;
       font-weight: 700;
+      line-height: 1.2;
       white-space: nowrap;
+      appearance: none;
+      cursor: pointer;
+      touch-action: manipulation;
     }
+
+    .gps-summary:focus-visible {
+      outline: 2px solid #c2410c;
+      outline-offset: 2px;
+    }
+
+    #gps-off-dialog {
+      width: 340px;
+      max-width: calc(100% - 32px);
+      max-height: calc(var(--app-height, 100dvh) - 32px);
+      padding: 20px;
+      border: 0;
+      border-radius: 12px;
+      background: white;
+      color: #0f172a;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      overflow: auto;
+    }
+
+    #gps-off-dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+    #gps-off-dialog h2 { margin: 0 0 12px; font-size: 18px; }
+    #gps-off-dialog p { margin: 0 0 16px; font-size: 13px; line-height: 1.5; }
+    #gps-off-dialog .btn { min-height: 44px; }
+    #gps-off-dialog .gps-cancel { background: #475569; }
 
     .hud-details {
       font-size: 13px;
@@ -499,10 +539,13 @@
         <span id="target-accessible-text" class="visually-hidden">Nearest target unavailable</span>
       </div>
 
-      <div id="gps-summary" class="gps-summary" role="status" aria-live="polite" aria-atomic="true">
+      <button id="gps-summary" class="gps-summary" type="button"
+        aria-label="GPS requesting location. Turn off GPS"
+        title="Turn off GPS">
         <span aria-hidden="true">GPS <span id="gps-icon">⏳</span></span>
-        <span id="gps-accessible-text" class="visually-hidden">GPS requesting location</span>
-      </div>
+      </button>
+      <span id="gps-accessible-text" class="visually-hidden"
+        role="status" aria-live="polite" aria-atomic="true">GPS requesting location</span>
 
       <button class="panel-toggle" type="button"
         aria-label="Collapse target information"
@@ -525,6 +568,15 @@
       </div>
     </div>
   </div>
+
+  <dialog id="gps-off-dialog" aria-labelledby="gps-off-title" aria-describedby="gps-off-description">
+    <h2 id="gps-off-title">Turn off GPS in Dot Safari?</h2>
+    <p id="gps-off-description">Your conquered dots will remain on the map.</p>
+    <form method="dialog" class="btn-group">
+      <button class="btn gps-cancel" type="submit" autofocus>Cancel</button>
+      <button id="gps-off-confirm" class="btn" type="submit">Turn off</button>
+    </form>
+  </dialog>
 
   <!-- About Modal -->
   <div id="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
@@ -587,6 +639,11 @@
     let gpsStartedAt = 0;
     let gpsRun = 0;
     let gpsPermissionDenied = false;
+    const GPS_ENABLED_KEY = 'ebt_gps_enabled';
+    let gpsEnabled = true;
+    try {
+      gpsEnabled = localStorage.getItem(GPS_ENABLED_KEY) !== 'false';
+    } catch {}
 
     const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([50.1109, 8.6821], 4);
     L.control.zoom({ position: 'topright' }).addTo(map);
@@ -612,7 +669,8 @@
         btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/></svg>`;
         btn.onclick = function(e) {
           e.stopPropagation();
-          if (currentPos) map.setView(currentPos, Math.max(map.getZoom(), 13));
+          if (!gpsEnabled) setGPSEnabled(true);
+          else if (currentPos) map.setView(currentPos, Math.max(map.getZoom(), 13));
           else startGPS();
         };
         return btn;
@@ -1382,6 +1440,11 @@
 
     // Smart GPS State Machine
     const GPS_PRESENTATION = {
+      off: {
+        icon: '⚪',
+        label: 'GPS off',
+        color: '#64748b'
+      },
       requesting: {
         icon: '⏳',
         label: 'GPS requesting location',
@@ -1422,6 +1485,9 @@
         currentGPSState = state;
       }
 
+      const action = gpsEnabled ? 'Turn off GPS' : 'Turn on GPS';
+      gpsSummary.setAttribute('aria-label', presentation.label + '. ' + action);
+      gpsSummary.title = action;
       gpsSummary.style.color = presentation.color;
       gpsStatus.style.color = presentation.color;
       document.getElementById('gps-message').textContent = message;
@@ -1434,7 +1500,37 @@
       geoWatchId = null;
     }
 
+    function showGPSOff() {
+      stopGPS();
+      currentPos = null;
+      lastFixAt = 0;
+      gpsStartedAt = 0;
+      if (marker) {
+        map.removeLayer(marker);
+        marker = null;
+      }
+      setGPSState('off', 'GPS off. Tap the GPS button to turn it on.');
+      showLocationMessage('Turn on GPS to see your current dot and nearest target.');
+    }
+
+    function setGPSEnabled(enabled) {
+      gpsEnabled = enabled;
+      try {
+        localStorage.setItem(GPS_ENABLED_KEY, String(enabled));
+      } catch {}
+      if (enabled) {
+        gpsPermissionDenied = false;
+        startGPS();
+      } else {
+        showGPSOff();
+      }
+    }
+
     function startGPS() {
+      if (!gpsEnabled) {
+        showGPSOff();
+        return;
+      }
       if (document.hidden) return;
 
       if (!navigator.geolocation) {
@@ -1560,9 +1656,24 @@
       }
     }
 
+    const gpsOffDialog = document.getElementById('gps-off-dialog');
+
+    document.getElementById('gps-summary').addEventListener('click', event => {
+      event.stopPropagation();
+      if (!gpsEnabled) {
+        setGPSEnabled(true);
+      } else if (!gpsOffDialog.open) {
+        gpsOffDialog.showModal();
+      }
+    });
+
+    document.getElementById('gps-off-confirm').addEventListener('click', () => {
+      setGPSEnabled(false);
+    });
+
     document.getElementById('gps-retry').addEventListener('click', () => {
       stopGPS();
-      startGPS();
+      setGPSEnabled(true);
     });
 
     // Keep the map and panels within the visible screen area.
