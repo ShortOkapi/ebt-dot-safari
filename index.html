@@ -59,7 +59,7 @@
       border-radius: 12px;
       font-size: 13px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16);
-      transition: max-height 0.3s ease;
+      transition: none;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
     }
@@ -84,7 +84,10 @@
     }
     
     .panel-header {
-      position: relative;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: rgba(255, 255, 255, 0.96);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -309,8 +312,6 @@
       font-size: 10px; color: #64748b; margin-top: 4px; font-weight: 500;
     }
 
-    #control-panel { z-index: 1001; }
-
     .csv-help {
       margin-bottom: 8px;
       padding: 10px;
@@ -329,7 +330,9 @@
     .csv-help-title { display: block; color: #0f172a; font-weight: 700; }
 
     .csv-help .btn {
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
       min-height: 44px;
       margin: 4px 0;
@@ -407,21 +410,24 @@
 
     <div id="control-content" class="panel-content">
       <div id="csv-help" class="csv-help">
-        <p class="csv-help-shortcut">Already have a fresh file? Skip the download.</p>
+        <p class="csv-help-shortcut">Already have a fresh file? Tap <strong>Load EBT Notes File</strong> below.</p>
         <ol class="csv-steps">
           <li>
+            <span class="csv-help-title">Get a fresh EBT Notes file</span>
+            <span class="csv-help-note">Sign in only if asked. Accept <strong>Download again</strong> if offered.</span>
+            <span class="csv-help-note"><strong>On iPhone:</strong> choose <strong>Save… → Files → Save</strong> when offered.</span>
             <a id="ebt-download-link" class="btn"
               href="https://eurobilltracker.com/my_notes/?tab=5;censored=yes"
               aria-label="Download from EBT">
               ⬇ Download from EBT
             </a>
-            <span class="csv-help-note">Sign in if asked, then wait for the file.</span>
-            <span class="csv-help-note">Save the file if asked. You don’t need to open it.</span>
-            <details class="csv-save-help">
-              <summary>Download or saving help</summary>
-              <p class="csv-help-note">After signing in, if no download or saving option appears, return here and tap <strong>Download from EBT</strong> again.</p>
-              <p class="csv-help-note"><strong>On iPhone:</strong> if you see <strong>Save…</strong>, choose <strong>Files</strong>, then save.</p>
-              <p class="csv-help-note">If you see a preview or <strong>Open in…</strong>, choose <strong>More…</strong> or <strong>Share</strong>, then <strong>Save to Files → Save</strong>.</p>
+            <span class="csv-help-note">The file may download without another message. Use the Load button below to look for the newest file.</span>
+            <span class="csv-help-note"><strong>“Download complete”?</strong> Dismiss that message and continue below. You don’t need <strong>Open in app</strong>.</span>
+            <details id="csv-saving-help" class="csv-save-help">
+              <summary>Help if the file is missing</summary>
+              <p class="csv-help-note"><strong>Android:</strong> look in <strong>Downloads</strong>. If the new file is not there yet, check your browser’s Downloads list for progress.</p>
+              <p class="csv-help-note"><strong>iPhone preview, before saving:</strong> tap <strong>More…</strong> or <strong>Share</strong>, then <strong>Save to Files</strong>. Choose a folder, then tap <strong>Save</strong> at the top right. Going back does not save it.</p>
+              <p class="csv-help-note"><strong>After signing in:</strong> if EBT only shows a sign-in confirmation and no download has started, return here and tap <strong>Download from EBT</strong> again.</p>
             </details>
           </li>
           <li>
@@ -430,7 +436,7 @@
               onclick="document.getElementById('csv-input').click()">
               📁 Load EBT Notes File
             </button>
-            <span class="csv-help-note">Select the file you just saved.</span>
+            <span class="csv-help-note">Tap <strong>Choose File</strong> if offered. Select the newest Notes CSV in <strong>Downloads</strong> or the folder you saved to.</span>
           </li>
         </ol>
       </div>
@@ -765,12 +771,48 @@
       toggle.setAttribute('aria-expanded', String(!collapsed));
       toggle.setAttribute('aria-label', `${action} ${toggle.dataset.panelLabel}`);
 
+      if (collapsed && panel.id === 'control-panel') {
+        document.getElementById('csv-saving-help').open = false;
+      }
       if (collapsed && hadFocus) toggle.focus();
+    }
+
+    function fitPanels(preferredPanel = null) {
+      const controls = document.getElementById('control-panel');
+      const radar = document.getElementById('hud-panel');
+      const controlStyle = getComputedStyle(controls);
+      const radarStyle = getComputedStyle(radar);
+      const pixels = value => parseFloat(value) || 0;
+      const headerHeight = (panel, style) => Math.ceil(
+        panel.querySelector('.panel-header').getBoundingClientRect().height +
+        pixels(style.paddingTop) + pixels(style.paddingBottom) +
+        pixels(style.borderTopWidth) + pixels(style.borderBottomWidth)
+      );
+      const controlHeader = headerHeight(controls, controlStyle);
+      const radarHeader = headerHeight(radar, radarStyle);
+      const gap = 8;
+      const space = document.body.clientHeight - pixels(controlStyle.top) -
+        pixels(radarStyle.bottom) - gap;
+
+      // Reserve room for the other panel's header, even while scrolling.
+      controls.style.maxHeight = `${Math.max(controlHeader, Math.floor(space - radarHeader))}px`;
+      radar.style.maxHeight = `${Math.max(radarHeader, Math.floor(space - controlHeader))}px`;
+
+      const bothOpen = !controls.classList.contains('collapsed') &&
+        !radar.classList.contains('collapsed');
+      if (!bothOpen) return;
+      if (controls.getBoundingClientRect().bottom + gap <= radar.getBoundingClientRect().top) return;
+
+      const preferred = preferredPanel || (
+        dotMap.size > 0 && document.getElementById('csv-help').hidden ? radar : controls
+      );
+      setPanelCollapsed(preferred === radar ? controls : radar, true);
     }
 
     function togglePanel(toggle) {
       const panel = toggle.closest('.panel');
       setPanelCollapsed(panel, !panel.classList.contains('collapsed'));
+      fitPanels(panel);
     }
 
     function refreshUIState() {
@@ -931,6 +973,7 @@
       const hasConqueredDots = dotMap.size > 0;
       const showHelp = open || !hasConqueredDots;
       document.getElementById('csv-help').hidden = !showHelp;
+      document.getElementById('csv-saving-help').open = false;
 
       const button = document.getElementById('csv-reload-btn');
       button.hidden = !hasConqueredDots;
@@ -943,6 +986,7 @@
       setCsvHelpOpen(open);
       document.getElementById('control-panel').scrollTop = 0;
       if (open) document.getElementById('ebt-download-link').focus({ preventScroll: true });
+      fitPanels(document.getElementById('control-panel'));
     }
 
     document.getElementById('csv-input').addEventListener('change', async function(e) {
@@ -1539,6 +1583,7 @@
       document.documentElement.style.setProperty('--app-height', `${height}px`);
       document.documentElement.style.setProperty('--app-top', `${Math.max(0, top)}px`);
       map.invalidateSize({ pan: false, debounceMoveend: true });
+      fitPanels();
     }
 
     function scheduleAppLayout() {
@@ -1587,6 +1632,18 @@
       if (document.hidden) suspendApp();
       else resumeApp();
     });
+
+    document.getElementById('csv-saving-help').addEventListener('toggle', () => {
+      fitPanels(document.getElementById('control-panel'));
+    });
+    document.getElementById('hud-panel').addEventListener('click', () => {
+      fitPanels(document.getElementById('hud-panel'));
+    });
+    if (typeof ResizeObserver === 'function') {
+      const panelObserver = new ResizeObserver(scheduleAppLayout);
+      panelObserver.observe(document.getElementById('control-panel'));
+      panelObserver.observe(document.getElementById('hud-panel'));
+    }
 
     // Boot
     loadFromStorage();
