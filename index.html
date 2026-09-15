@@ -260,6 +260,7 @@
       color: #64748b;
       font-style: italic;
       text-align: center;
+      white-space: pre-line;
     }
 
     .gps-status {
@@ -1509,8 +1510,8 @@
         map.removeLayer(marker);
         marker = null;
       }
-      setGPSState('off', 'GPS off. Tap the GPS button to turn it on.');
-      showLocationMessage('Turn on GPS to see your current dot and nearest target.');
+      setGPSState('off', 'GPS off. Tap GPS ⚪ to turn it on.');
+      showLocationMessage('Turn on GPS to see your current dot\nand nearest target.');
     }
 
     function setGPSEnabled(enabled) {
