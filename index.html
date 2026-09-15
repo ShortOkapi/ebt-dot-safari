@@ -309,39 +309,40 @@
       font-size: 10px; color: #64748b; margin-top: 4px; font-weight: 500;
     }
 
+    #control-panel { z-index: 1001; }
+
     .csv-help {
       margin-bottom: 8px;
-      padding: 8px;
+      padding: 10px;
       border: 1px solid #fed7aa;
       border-radius: 6px;
       background: #fff7ed;
-      font-size: 11px;
-      line-height: 1.4;
+      font-size: 12px;
+      line-height: 1.45;
     }
 
-    .csv-help-title {
-      color: #0f172a;
-      font-weight: 700;
-    }
+    .csv-help[hidden] { display: none; }
+    .csv-help-shortcut { margin: 0 0 10px; color: #475569; font-style: italic; }
+    .csv-steps { margin: 0; padding-left: 20px; }
+    .csv-steps > li::marker { color: #0f172a; font-weight: 700; }
+    .csv-steps > li + li { margin-top: 14px; }
+    .csv-help-title { display: block; color: #0f172a; font-weight: 700; }
 
     .csv-help .btn {
       display: block;
       width: 100%;
-      margin-top: 6px;
+      min-height: 44px;
+      margin: 4px 0;
     }
 
-    .csv-help-note {
-      display: block;
-      margin-top: 4px;
-      color: #64748b;
-    }
+    .csv-help-note { display: block; margin: 4px 0 0; color: #475569; }
+    .csv-save-help { margin-top: 6px; color: #475569; }
+    .csv-save-help summary { padding: 4px 0; cursor: pointer; text-decoration: underline; }
+    .csv-save-help summary:focus-visible { outline: 2px solid #0f172a; outline-offset: 2px; }
+    .csv-actions .btn { min-height: 44px; }
 
-    .csv-help-note[hidden] { display: none; }
-
-    .csv-help-next {
-      margin-top: 6px;
-      color: #334155;
-    }
+    #csv-help:not([hidden]) ~ #stats-container:not([aria-busy="true"]),
+    #csv-help:not([hidden]) ~ .legend-container { display: none; }
 
     .status-box {
       font-size: 12px; color: #334155; margin-top: 8px; line-height: 1.45;
@@ -406,33 +407,38 @@
 
     <div id="control-content" class="panel-content">
       <div id="csv-help" class="csv-help">
-        <div class="csv-help-title">1. Download a fresh EBT Notes file</div>
-        <span class="csv-help-note"><em>Already downloaded a fresh file? Go directly to step 2.</em></span>
-        <span class="csv-help-note">If necessary, EBT will ask you to sign in.</span>
-
-        <a id="ebt-download-link" class="btn"
-          href="https://eurobilltracker.com/my_notes/?tab=5;censored=yes"
-          aria-label="Download a fresh EBT Notes CSV from EuroBillTracker">
-          ⬇ Download from EBT
-        </a>
-
-        <span id="csv-download-status" class="csv-help-note"
-          role="status" aria-live="polite" aria-atomic="true" hidden></span>
-        <div class="csv-help-next"><strong>2. Return to Dot Safari</strong></div>
-        <span class="csv-help-note">Choose the most recently downloaded file.</span>
-
-        <button class="btn" type="button"
-          onclick="document.getElementById('csv-input').click()"
-          aria-label="Load EBT Notes File">
-          📁 Load EBT Notes File
-        </button>
+        <p class="csv-help-shortcut">Already have a fresh file? Skip the download.</p>
+        <ol class="csv-steps">
+          <li>
+            <a id="ebt-download-link" class="btn"
+              href="https://eurobilltracker.com/my_notes/?tab=5;censored=yes"
+              aria-label="Download from EBT">
+              ⬇ Download from EBT
+            </a>
+            <span class="csv-help-note">Sign in if asked, then wait for the file.</span>
+            <span class="csv-help-note">Save the file if asked. You don’t need to open it.</span>
+            <details class="csv-save-help">
+              <summary>Download or saving help</summary>
+              <p class="csv-help-note">After signing in, if no download or saving option appears, return here and tap <strong>Download from EBT</strong> again.</p>
+              <p class="csv-help-note"><strong>On iPhone:</strong> if you see <strong>Save…</strong>, choose <strong>Files</strong>, then save.</p>
+              <p class="csv-help-note">If you see a preview or <strong>Open in…</strong>, choose <strong>More…</strong> or <strong>Share</strong>, then <strong>Save to Files → Save</strong>.</p>
+            </details>
+          </li>
+          <li>
+            <span class="csv-help-title">Return to Dot Safari and tap</span>
+            <button id="csv-load-btn" class="btn" type="button"
+              onclick="document.getElementById('csv-input').click()">
+              📁 Load EBT Notes File
+            </button>
+            <span class="csv-help-note">Select the file you just saved.</span>
+          </li>
+        </ol>
       </div>
 
-      <div class="btn-group">
+      <div class="btn-group csv-actions">
         <button id="csv-reload-btn" class="btn" type="button" hidden
-          onclick="document.getElementById('csv-input').click()"
-          aria-label="Load another EBT Notes File">
-          📁 Load EBT Notes File
+          onclick="toggleCsvHelp()" aria-controls="csv-help" aria-expanded="false">
+          Update my map
         </button>
         <input type="file" id="csv-input" accept=".csv,text/csv" tabindex="-1" />
         <button class="btn btn-about" type="button" id="about-btn" aria-label="About" title="About / Credits">ℹ️</button>
@@ -786,16 +792,8 @@
       clearButton.disabled = !hasConqueredDots;
       clearButton.title = clearDescription;
       clearButton.setAttribute('aria-label', clearDescription);
-      document.getElementById('csv-help').hidden = hasConqueredDots;
-      document.getElementById('csv-reload-btn').hidden = !hasConqueredDots;
-
-      const downloadStatus = document.getElementById('csv-download-status');
-      if (hasConqueredDots) {
-        downloadStatus.textContent = '';
-        downloadStatus.hidden = true;
-      }
-
-      setPanelCollapsed(document.getElementById('control-panel'), true);
+      setCsvHelpOpen(!hasConqueredDots);
+      setPanelCollapsed(document.getElementById('control-panel'), hasConqueredDots);
       ebtGridLayer.redraw();
 
       if (currentPos) {
@@ -929,12 +927,23 @@
       return new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    document.getElementById('ebt-download-link').addEventListener('click', () => {
-      const status = document.getElementById('csv-download-status');
-      status.textContent =
-        'Download requested. When the file appears in Downloads, continue to step 2.';
-      status.hidden = false;
-    });
+    function setCsvHelpOpen(open) {
+      const hasConqueredDots = dotMap.size > 0;
+      const showHelp = open || !hasConqueredDots;
+      document.getElementById('csv-help').hidden = !showHelp;
+
+      const button = document.getElementById('csv-reload-btn');
+      button.hidden = !hasConqueredDots;
+      button.textContent = showHelp ? 'Close instructions' : 'Update my map';
+      button.setAttribute('aria-expanded', String(showHelp));
+    }
+
+    function toggleCsvHelp() {
+      const open = document.getElementById('csv-help').hidden;
+      setCsvHelpOpen(open);
+      document.getElementById('control-panel').scrollTop = 0;
+      if (open) document.getElementById('ebt-download-link').focus({ preventScroll: true });
+    }
 
     document.getElementById('csv-input').addEventListener('change', async function(e) {
       const file = e.target.files[0];
@@ -948,6 +957,7 @@
       if (file.size === 0) {
         statsContainer.removeAttribute('aria-busy');
         refreshUIState();
+        setCsvHelpOpen(true);
         setPanelCollapsed(document.getElementById('control-panel'), false);
         alert('Import failed: The selected CSV is empty.');
         return;
@@ -963,6 +973,7 @@
       const failImport = (message) => {
         if (version !== importVersion) return;
         refreshUIState();
+        setCsvHelpOpen(true);
         setPanelCollapsed(document.getElementById('control-panel'), false);
         alert(`Import failed: ${message}`);
       };
