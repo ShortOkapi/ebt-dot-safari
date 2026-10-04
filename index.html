@@ -243,6 +243,56 @@
       line-height: 1.5;
     }
 
+    .target-area-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .target-area-control label { flex: 0 0 auto; font-weight: 600; }
+    .target-area-control select {
+      min-width: 0;
+      flex: 1;
+      min-height: 44px;
+      padding: 6px 4px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+    }
+    .target-area-status, .target-note {
+      margin: 4px 0 10px;
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .target-alternatives { margin-top: 8px; }
+    .target-alternatives summary { cursor: pointer; padding: 8px 0; }
+    .target-alternatives button {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 4px;
+      padding: 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #0f172a;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .target-alternatives button[aria-pressed="true"] { border-color: #c2410c; }
+    .target-area-control select:focus-visible, .target-alternatives button:focus-visible {
+      outline: 2px solid #c2410c;
+      outline-offset: 2px;
+    }
+    @media (max-width: 360px) {
+      .target-area-control { flex-wrap: wrap; }
+      .target-area-control select { flex-basis: 100%; }
+    }
+
     .hud-dot-references {
       display: grid;
       grid-template-columns: max-content max-content;
@@ -557,6 +607,17 @@
     </div>
 
     <div id="hud-content" class="panel-content">
+      <div class="target-area-control">
+        <label for="target-area">Target area:</label>
+        <select id="target-area" aria-describedby="target-area-message">
+          <option value="worldwide">All land worldwide</option>
+          <option value="euro-use">Euro-use area</option>
+        </select>
+      </div>
+      <div class="target-area-status">
+        <span id="target-area-message" role="status" aria-live="polite">Loading target map…</span>
+        <button id="target-area-retry" class="gps-retry" type="button" hidden>Retry target map</button>
+      </div>
       <div id="hud-details" class="hud-details hud-location-message">
         Allow location access when prompted...
       </div>
@@ -629,6 +690,24 @@
     const CSV_CHUNK_BYTES = 1024 * 1024;
     const MAX_CSV_LINE_CHARS = 2 * 1024 * 1024;
     const IMPORT_TIME_SLICE_MS = 12;
+
+    // Target-area snapshots and radar policy
+    const TARGET_AREA_KEY = 'ebt_target_area';
+    const TARGET_SEARCH_KM = 150;
+    const TARGET_TIE_KM = 0.000001; // 1 mm computational tolerance; compare unrounded distances.
+    const TARGET_STABILITY_KM = 0.01; // At most 10 m farther; separate from exact ties.
+    const targetModels = {
+      worldwide: { id: 'worldwide', state: 'loading', rows: new Map(), excluded: new Set() },
+      'euro-use': { id: 'euro-use', state: 'loading', rows: new Map(), excluded: new Set() }
+    };
+    let targetArea = 'worldwide';
+    let targetChoiceSaved = true;
+    let lastRadarTarget = null;
+    let lastRadarResult = null;
+    try {
+      const saved = localStorage.getItem(TARGET_AREA_KEY);
+      if (Object.hasOwn(targetModels, saved)) targetArea = saved;
+    } catch { targetChoiceSaved = false; }
 
     // GPS State
     const MAX_USABLE_ACCURACY_M = 1000;
@@ -875,6 +954,7 @@
     }
 
     function refreshUIState() {
+      resetRadarTarget();
       updateMaxCount();
       buildRenderRows();
 
@@ -1305,66 +1385,201 @@
       `).openOn(map);
     });
 
-    // Radial Radar Search
-    function getNearestUnconquered(lat, lon, currentI, currentJ) {
-      if (!dotMap.has(`${currentI}_${currentJ}`)) {
-        return { isHere: true, i: currentI, j: currentJ };
-      }
-
-      let minDistance = Infinity;
-      let closestDx = 0, closestDy = 0;
-      let closestI = null, closestJ = null;
-      let maxRadius = 100;
-      let foundInRing = -1;
-
-      for (let r = 1; r <= maxRadius; r++) {
-        let cells = [];
-        for (let dx = -r; dx <= r; dx++) { cells.push([currentI + dx, currentJ - r]); cells.push([currentI + dx, currentJ + r]); }
-        for (let dy = -r + 1; dy <= r - 1; dy++) { cells.push([currentI - r, currentJ + dy]); cells.push([currentI + r, currentJ + dy]); }
-
-        let ringFound = false;
-        for (const [ci, cj] of cells) {
-          if (!dotMap.has(`${ci}_${cj}`)) {
-            ringFound = true;
-            let cLat = Math.max(minLat + ci * dotH, Math.min(lat, minLat + (ci + 1) * dotH));
-            let cLon = Math.max(minLon + cj * dotW, Math.min(lon, minLon + (cj + 1) * dotW));
-
-            let dy = (cLat - lat) * 111.139;
-            let dx = (cLon - lon) * (111.139 * Math.cos(lat * Math.PI / 180));
-            let dist = Math.sqrt(dx*dx + dy*dy);
-
-            if (dist < minDistance) {
-              minDistance = dist;
-              closestDx = dx;
-              closestDy = dy;
-              closestI = ci;
-              closestJ = cj;
-            }
-          }
-        }
-        if (ringFound && foundInRing === -1) foundInRing = r;
-        if (foundInRing !== -1 && r > foundInRing) break; 
-      }
-
-      if (minDistance === Infinity) return null;
-      let angle = Math.atan2(closestDx, closestDy) * (180 / Math.PI); 
-      return {
-        isHere: false,
-        distance: minDistance,
-        angle: angle,
-        i: closestI,
-        j: closestJ
+    // Target-map validation and loading
+    function parseTargetRanges(data, expectedFormat) {
+      const grid = data?.grid;
+      const expectedGrid = {
+        id: 'ebt-dot-safari-legacy-v1', dotH, dotW, minLat, minLon,
+        longitudeWrap: 360, minColumn: -3, maxColumn: 853, minRow: 0, maxRow: 641
       };
+      if (data?.format !== expectedFormat || data.formatVersion !== 1 ||
+          !grid || !Object.entries(expectedGrid).every(([key, value]) =>
+            typeof value === 'number'
+              ? typeof grid[key] === 'number' && Math.abs(grid[key] - value) < 1e-12
+              : grid[key] === value) || !Array.isArray(data.ranges)) {
+        throw new Error('Unsupported target map or grid');
+      }
+      if (expectedFormat === 'ebt-target-ranges' && data.model !== 'euro-use') {
+        throw new Error('Unexpected target-area model');
+      }
+      const rows = new Map();
+      let count = 0;
+      for (const range of data.ranges) {
+        if (!Array.isArray(range) || range.length !== 3 ||
+            !range.every(Number.isSafeInteger)) throw new Error('Invalid target range');
+        const [i, first, last] = range;
+        if (i < 0 || i > 641 || first < -3 || last > 853 || first > last) {
+          throw new Error('Target range outside the legacy grid');
+        }
+        const intervals = rows.get(i) || [];
+        if (intervals.length && first <= intervals[intervals.length - 1][1]) {
+          throw new Error('Overlapping or unordered target ranges');
+        }
+        intervals.push([first, last]);
+        rows.set(i, intervals);
+        count += last - first + 1;
+      }
+      if (!Number.isSafeInteger(data.eligibleCount) || count !== data.eligibleCount) {
+        throw new Error('Target-map count mismatch');
+      }
+      return rows;
     }
 
-    function setTargetSummary(nearest) {
+    function applyWorldOverrides(rows, overrides) {
+      const excluded = new Set();
+      for (const kind of ['include', 'exclude']) {
+        if (!Array.isArray(overrides?.[kind])) throw new Error('Invalid land overrides');
+        for (const entry of overrides[kind]) {
+          const dot = entry?.dot;
+          if (!Array.isArray(dot) || dot.length !== 2 || !dot.every(Number.isSafeInteger) ||
+              dot[0] < 0 || dot[0] > 641 || dot[1] < -3 || dot[1] > 853) {
+            throw new Error('Invalid land-override dot');
+          }
+          const [i, j] = dot;
+          if (kind === 'exclude') excluded.add(`${i}_${j}`);
+          else {
+            const intervals = rows.get(i) || [];
+            intervals.push([j, j]);
+            rows.set(i, intervals);
+          }
+        }
+      }
+      for (const [i, intervals] of rows) {
+        intervals.sort((a, b) => a[0] - b[0]);
+        const merged = [];
+        for (const [first, last] of intervals) {
+          const previous = merged[merged.length - 1];
+          if (previous && first <= previous[1] + 1) previous[1] = Math.max(previous[1], last);
+          else merged.push([first, last]);
+        }
+        rows.set(i, merged);
+      }
+      return excluded; // Exclusion wins if a dot appears in both lists.
+    }
+
+    async function readTargetJSON(filename) {
+      const response = await fetch(`./${filename}`);
+      if (!response.ok) throw new Error(`Cannot load ${filename}`);
+      return response.json();
+    }
+
+    function refreshTargetAreaControl() {
+      const model = targetModels[targetArea];
+      const message = document.getElementById('target-area-message');
+      message.textContent = model.state === 'ready'
+        ? `Searches up to ${TARGET_SEARCH_KM} km.`
+        : model.state === 'error'
+          ? 'Target map unavailable. Check the map files, then retry.'
+          : 'Loading target map…';
+      if (!targetChoiceSaved) message.textContent += ' Choice could not be saved on this device.';
+      document.getElementById('target-area-retry').hidden = model.state !== 'error';
+    }
+
+    async function loadTargetModel(id) {
+      const model = targetModels[id];
+      model.state = 'loading';
+      if (id === targetArea) refreshTargetAreaControl();
+      try {
+        if (id === 'worldwide') {
+          const [base, overrides] = await Promise.all([
+            readTargetJSON('osm-base-mask.json'), readTargetJSON('manual-overrides.json')
+          ]);
+          const rows = parseTargetRanges(base, 'ebt-worldwide-ranges');
+          const excluded = applyWorldOverrides(rows, overrides);
+          model.rows = rows;
+          model.excluded = excluded;
+        } else {
+          model.rows = parseTargetRanges(await readTargetJSON('euro-use-eligibility.json'), 'ebt-target-ranges');
+        }
+        model.state = 'ready';
+      } catch (error) {
+        model.state = 'error';
+        model.rows = new Map();
+        console.warn('Target map unavailable:', id, error);
+      }
+      if (id === targetArea) {
+        resetRadarTarget();
+        refreshTargetAreaControl();
+        if (currentPos) updateHUD(currentPos[0], currentPos[1]);
+      }
+    }
+
+    function isEligibleDot(i, j, model) {
+      return model.state === 'ready' && !model.excluded.has(`${i}_${j}`) &&
+        (model.rows.get(i) || []).some(([first, last]) => j >= first && j <= last);
+    }
+
+    // Side-effect-free search shared with the future planning popup.
+    // Distance and bearing use the original rectangle-clamping formula.
+    // Bounds are the supplied legacy strip; columns are never reduced modulo 856.
+    function findEligibleTargets(lat, lon, conquered, model, radiusKM = TARGET_SEARCH_KM) {
+      if (model.state !== 'ready') return { status: model.state };
+      const currentI = Math.floor((lat - minLat) / dotH);
+      const currentJ = Math.floor((lon - minLon) / dotW);
+      if (isEligibleDot(currentI, currentJ, model) && !conquered.has(`${currentI}_${currentJ}`)) {
+        const here = { isHere: true, i: currentI, j: currentJ, distance: 0, angle: 0 };
+        return { status: 'target', minimumDistance: 0, candidates: [here], nearby: [here] };
+      }
+
+      const lonScale = 111.139 * Math.cos(lat * Math.PI / 180);
+      const latReach = radiusKM / 111.139;
+      const lonReach = lonScale > 0 ? radiusKM / lonScale : Infinity;
+      // Include touching boundary cells; the distance check enforces the radius.
+      const firstI = Math.max(0, Math.floor((lat - latReach - minLat) / dotH) - 1);
+      const lastI = Math.min(641, Math.floor((lat + latReach - minLat) / dotH) + 1);
+      const firstJ = Math.max(-3, Math.floor((lon - lonReach - minLon) / dotW) - 1);
+      const lastJ = Math.min(853, Math.floor((lon + lonReach - minLon) / dotW) + 1);
+      const nearby = [];
+      let minimumDistance = Infinity;
+      let eligibleNearby = false;
+
+      for (let i = firstI; i <= lastI; i++) {
+        for (const [first, last] of model.rows.get(i) || []) {
+          for (let j = Math.max(first, firstJ); j <= Math.min(last, lastJ); j++) {
+            if (model.excluded.has(`${i}_${j}`)) continue;
+            const cLat = Math.max(minLat + i * dotH, Math.min(lat, minLat + (i + 1) * dotH));
+            const cLon = Math.max(minLon + j * dotW, Math.min(lon, minLon + (j + 1) * dotW));
+            const dy = (cLat - lat) * 111.139;
+            const dx = (cLon - lon) * lonScale;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance > radiusKM) continue;
+            eligibleNearby = true;
+            if (conquered.has(`${i}_${j}`)) continue;
+            minimumDistance = Math.min(minimumDistance, distance);
+            nearby.push({ isHere: false, i, j, distance, angle: Math.atan2(dx, dy) * (180 / Math.PI) });
+          }
+        }
+      }
+      if (!nearby.length) {
+        return { status: model.id === 'euro-use' && !eligibleNearby ? 'outside' : 'no-target' };
+      }
+      const candidates = nearby.filter(candidate => candidate.distance - minimumDistance <= TARGET_TIE_KM)
+        .sort((a, b) => a.i - b.i || a.j - b.j);
+      return { status: 'target', minimumDistance, candidates, nearby };
+    }
+
+    function chooseRadarTarget(result, previous) {
+      if (result.status !== 'target') return { ...result, primary: null, stabilityHeld: false };
+      const retained = previous && result.nearby.find(candidate =>
+        candidate.i === previous.i && candidate.j === previous.j);
+      const primary = result.candidates[0].isHere ? result.candidates[0]
+        : retained && retained.distance - result.minimumDistance <= TARGET_STABILITY_KM
+          ? retained : result.candidates[0];
+      return { ...result, primary, stabilityHeld: primary.distance - result.minimumDistance > TARGET_TIE_KM };
+    }
+
+    function resetRadarTarget() {
+      lastRadarTarget = null;
+      lastRadarResult = null;
+    }
+
+    function setTargetSummary(nearest, stabilityHeld = false) {
       const longLabel = document.getElementById('target-label-long');
       const shortLabel = document.getElementById('target-label-short');
       const value = document.getElementById('target-value');
       const compass = document.getElementById('target-compass');
       const arrow = document.getElementById('target-arrow');
       const accessibleText = document.getElementById('target-accessible-text');
-
       if (!nearest) {
         longLabel.textContent = 'Nearest Target:';
         shortLabel.textContent = 'Target:';
@@ -1373,30 +1588,27 @@
         accessibleText.textContent = 'Nearest target unavailable';
         return;
       }
-
       if (nearest.isHere) {
         longLabel.textContent = 'Unconquered dot';
         shortLabel.textContent = 'Unconquered';
         value.textContent = '🎯';
         compass.hidden = true;
-        accessibleText.textContent =
-          `You are on unconquered dot ${nearest.i}, ${nearest.j}`;
+        accessibleText.textContent = `You are already in eligible unconquered target dot ${nearest.i}, ${nearest.j}`;
         return;
       }
-
       const roundedDistance = Number(nearest.distance.toFixed(1));
       const angle = ((nearest.angle % 360) + 360) % 360;
-
-      longLabel.textContent = 'Nearest Target:';
-      shortLabel.textContent = 'Target:';
+      longLabel.textContent = stabilityHeld ? 'Nearby Target:' : 'Nearest Target:';
+      shortLabel.textContent = stabilityHeld ? 'Nearby:' : 'Target:';
       value.textContent = `${formatNumber(roundedDistance)} km`;
       compass.hidden = false;
       arrow.style.transform = `rotate(${angle}deg)`;
       accessibleText.textContent =
-        `Nearest unconquered dot ${nearest.i}, ${nearest.j}, ${roundedDistance} kilometres away, bearing ${Math.round(angle)} degrees`;
+        `${stabilityHeld ? 'Similar-distance' : 'Nearest'} unconquered target dot ${nearest.i}, ${nearest.j}, ${roundedDistance} kilometres away, bearing ${Math.round(angle)} degrees`;
     }
 
     function showLocationMessage(message) {
+      resetRadarTarget();
       const details = document.getElementById('hud-details');
       details.classList.add('hud-location-message');
       details.textContent = message;
@@ -1406,38 +1618,90 @@
     function updateHUD(lat, lon) {
       const hudDetails = document.getElementById('hud-details');
       hudDetails.classList.remove('hud-location-message');
-
       const i = Math.floor((lat - minLat) / dotH);
       const j = Math.floor((lon - minLon) / dotW);
-
+      const currentReference = `<div><b>Current Dot:</b> [${i}, ${j}]</div>`;
       if (totalNotesCount === 0) {
+        resetRadarTarget();
         setTargetSummary(null);
-
-        hudDetails.innerHTML = `
-          <div style="margin-bottom: 6px;"><b>Current Dot:</b> [${i}, ${j}]</div>
-          <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; color: #64748b; font-style: italic; text-align: center;">
-            Load your EBT Notes file<br>to activate the target radar.
-          </div>
-        `;
+        hudDetails.innerHTML = `${currentReference}<p class="target-note">Load your EBT Notes file to activate the target radar.</p>`;
         return;
       }
-
-      const nearest = getNearestUnconquered(lat, lon, i, j);
-      const targetReference = nearest
-        ? `[${nearest.i}, ${nearest.j}]`
-        : '—';
-
-      setTargetSummary(nearest);
-
+      const result = chooseRadarTarget(findEligibleTargets(lat, lon, dotMap, targetModels[targetArea]), lastRadarTarget);
+      lastRadarResult = result;
+      lastRadarTarget = result.primary;
+      setTargetSummary(result.primary, result.stabilityHeld);
+      if (!result.primary) {
+        const message = result.status === 'outside' ? 'Outside the selected target area'
+          : result.status === 'no-target' ? `No eligible unconquered target within ${TARGET_SEARCH_KM} km`
+          : result.status === 'error' ? 'Selected target map unavailable'
+          : 'Loading selected target map…';
+        document.getElementById('target-accessible-text').textContent = message;
+        hudDetails.innerHTML = `${currentReference}<p class="target-note">${message}</p>`;
+        return;
+      }
+      const nearest = result.primary;
+      const previousAlternatives = hudDetails.querySelector('.target-alternatives');
+      const alternativesOpen = previousAlternatives?.open;
+      const focused = hudDetails.contains(document.activeElement)
+        ? document.activeElement.closest('button[data-target-i]') : null;
+      const focusedI = focused?.dataset.targetI;
+      const focusedJ = focused?.dataset.targetJ;
+      let extra = nearest.isHere
+        ? '<p class="target-note">You are already in an unconquered target dot.</p>'
+        : result.stabilityHeld
+          ? '<p class="target-note">Similar distance: keeping this target while it is within 10 m of the nearest. Its own distance and bearing are shown above.</p>'
+          : '';
+      if (result.candidates.length > 1) {
+        extra += `<details class="target-alternatives"><summary>${result.candidates.length} equally near targets</summary>`;
+        for (const candidate of result.candidates) {
+          const selected = candidate.i === nearest.i && candidate.j === nearest.j;
+          const bearing = Math.round(((candidate.angle % 360) + 360) % 360) % 360;
+          extra += `<button type="button" data-target-i="${candidate.i}" data-target-j="${candidate.j}" aria-pressed="${selected}">[${candidate.i}, ${candidate.j}] · ${formatNumber(Number(candidate.distance.toFixed(1)))} km · ${bearing}°${selected ? ' · chosen' : ''}</button>`;
+        }
+        extra += '</details>';
+      }
       hudDetails.innerHTML = `
         <div class="hud-dot-references">
-          <b>Current Dot:</b>
-          <span class="hud-dot-reference">[${i}, ${j}]</span>
-          <b>Nearest Unconquered Dot:</b>
-          <span class="hud-dot-reference">${targetReference}</span>
-        </div>
-      `;
+          <b>Current Dot:</b><span class="hud-dot-reference">[${i}, ${j}]</span>
+          <b>${nearest.isHere ? 'Target Dot:' : result.stabilityHeld ? 'Nearby Target Dot:' : 'Nearest Target Dot:'}</b>
+          <span class="hud-dot-reference">[${nearest.i}, ${nearest.j}]</span>
+        </div>${extra}`;
+      const alternatives = hudDetails.querySelector('.target-alternatives');
+      if (alternatives && alternativesOpen) alternatives.open = true;
+      if (focused) {
+        const replacement = alternatives?.querySelector(`[data-target-i="${focusedI}"][data-target-j="${focusedJ}"]`);
+        (replacement || document.querySelector('#hud-panel .panel-toggle')).focus({ preventScroll: true });
+      }
     }
+
+    const targetAreaSelect = document.getElementById('target-area');
+    targetAreaSelect.value = targetArea;
+    targetAreaSelect.addEventListener('change', () => {
+      targetArea = targetAreaSelect.value;
+      try {
+        localStorage.setItem(TARGET_AREA_KEY, targetArea);
+        targetChoiceSaved = true;
+      } catch { targetChoiceSaved = false; }
+      resetRadarTarget();
+      refreshTargetAreaControl();
+      if (currentPos) updateHUD(currentPos[0], currentPos[1]);
+    });
+    document.getElementById('target-area-retry').addEventListener('click', () => loadTargetModel(targetArea));
+    document.getElementById('hud-details').addEventListener('click', event => {
+      const button = event.target.closest('button[data-target-i]');
+      if (!button || !currentPos || !lastRadarResult?.candidates) return;
+      const candidate = lastRadarResult.candidates.find(item =>
+        item.i === Number(button.dataset.targetI) && item.j === Number(button.dataset.targetJ));
+      if (!candidate) return;
+      lastRadarTarget = candidate;
+      updateHUD(currentPos[0], currentPos[1]);
+      const details = document.querySelector('#hud-details .target-alternatives');
+      if (details) {
+        details.open = true;
+        details.querySelector('button[aria-pressed="true"]')?.focus({ preventScroll: true });
+      }
+    });
 
     // Smart GPS State Machine
     const GPS_PRESENTATION = {
@@ -1758,6 +2022,9 @@
     }
 
     // Boot
+    refreshTargetAreaControl();
+    loadTargetModel('worldwide');
+    loadTargetModel('euro-use');
     loadFromStorage();
     resumeApp();
 

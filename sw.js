@@ -1,9 +1,12 @@
-const APP_VERSION = '2.0.4';
+const APP_VERSION = '2.1.0-rc1';
 const CACHE_PREFIX = 'ebt-dot-safari-v';
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './euro-use-eligibility.json',
+  './osm-base-mask.json',
+  './manual-overrides.json',
   './site.webmanifest',
   './android-chrome-192x192.png',
   './android-chrome-512x512.png',
