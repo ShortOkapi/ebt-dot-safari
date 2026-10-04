@@ -691,8 +691,20 @@
     const MAX_CSV_LINE_CHARS = 2 * 1024 * 1024;
     const IMPORT_TIME_SLICE_MS = 12;
 
-    // Target-area snapshots and radar policy
+    // Automatically refreshed target data and radar policy
     const TARGET_AREA_KEY = 'ebt_target_area';
+    const TARGET_REFRESH_MS = 60 * 60 * 1000;
+    const TARGET_FETCH_TIMEOUT_MS = 10000;
+    const TARGET_DATA_CACHE = 'ebt-dot-safari-target-data-v1';
+    const TARGET_SOURCES = {
+      'euro-use': {
+        eligibility: 'https://raw.githubusercontent.com/ShortOkapi/ebt-target-map/main/euro-use-eligibility.json'
+      },
+      worldwide: {
+        base: 'https://raw.githubusercontent.com/ShortOkapi/ebt-world-land-map/main/osm-base-mask.json',
+        overrides: 'https://raw.githubusercontent.com/ShortOkapi/ebt-world-land-map/main/manual-overrides.json'
+      }
+    };
     const TARGET_SEARCH_KM = 150;
     const TARGET_TIE_KM = 0.000001; // 1 mm computational tolerance; compare unrounded distances.
     const TARGET_STABILITY_KM = 0.01; // At most 10 m farther; separate from exact ties.
@@ -1457,51 +1469,149 @@
       return excluded; // Exclusion wins if a dot appears in both lists.
     }
 
-    async function readTargetJSON(filename) {
-      const response = await fetch(`./${filename}`);
-      if (!response.ok) throw new Error(`Cannot load ${filename}`);
-      return response.json();
+    async function readTargetJSON(url, remote = false) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TARGET_FETCH_TIMEOUT_MS);
+      try {
+        const requestURL = remote ? new URL(url) : url;
+        if (remote) requestURL.searchParams.set('ebt-map-check', String(Date.now()));
+        const response = await fetch(requestURL, {
+          signal: controller.signal,
+          ...(remote ? { cache: 'no-store', credentials: 'omit' } : {})
+        });
+        if (!response.ok) throw new Error(`Cannot load ${url}`);
+        return await response.json();
+      } finally { clearTimeout(timeout); }
+    }
+
+    function compileTargetData(id, data) {
+      if (id === 'worldwide') {
+        const rows = parseTargetRanges(data?.base, 'ebt-worldwide-ranges');
+        return { rows, excluded: applyWorldOverrides(rows, data?.overrides) };
+      }
+      return { rows: parseTargetRanges(data?.eligibility, 'ebt-target-ranges'), excluded: new Set() };
+    }
+
+    function targetDataCacheKey(id) {
+      return new URL(`./.target-data/${id}`, window.location.href).href;
+    }
+
+    function adoptTargetData(id, data, checkedAt = 0) {
+      const compiled = compileTargetData(id, data); // Validate fully before adoption.
+      const model = targetModels[id];
+      const signature = JSON.stringify(data);
+      const changed = model.signature !== signature;
+      model.rows = compiled.rows;
+      model.excluded = compiled.excluded;
+      model.signature = signature;
+      model.checkedAt = checkedAt;
+      model.state = 'ready';
+      if (id === targetArea) {
+        if (changed) {
+          if (currentPos) updateHUD(currentPos[0], currentPos[1]);
+          else resetRadarTarget();
+        }
+        refreshTargetAreaControl();
+      }
+    }
+
+    async function restoreTargetData(id) {
+      // This cache survives normal app-version cache replacement.
+      try {
+        const cache = await caches.open(TARGET_DATA_CACHE);
+        const response = await cache.match(targetDataCacheKey(id));
+        if (response) {
+          const saved = await response.json();
+          if (saved.schema !== 1 || !Number.isFinite(saved.checkedAt) || saved.checkedAt < 0) {
+            throw new Error('Invalid saved target map');
+          }
+          adoptTargetData(id, saved.data, saved.checkedAt);
+          return;
+        }
+      } catch (error) { console.warn('Saved target map unavailable:', id, error); }
+
+      // The supplied files seed first use and provide another offline fallback.
+      const data = id === 'worldwide'
+        ? await Promise.all([readTargetJSON('./osm-base-mask.json'), readTargetJSON('./manual-overrides.json')])
+            .then(([base, overrides]) => ({ base, overrides }))
+        : { eligibility: await readTargetJSON('./euro-use-eligibility.json') };
+      adoptTargetData(id, data);
     }
 
     function refreshTargetAreaControl() {
       const model = targetModels[targetArea];
       const message = document.getElementById('target-area-message');
-      message.textContent = model.state === 'ready'
-        ? `Searches up to ${TARGET_SEARCH_KM} km.`
-        : model.state === 'error'
-          ? 'Target map unavailable. Check the map files, then retry.'
-          : 'Loading target map…';
-      if (!targetChoiceSaved) message.textContent += ' Choice could not be saved on this device.';
-      document.getElementById('target-area-retry').hidden = model.state !== 'error';
+      let text = model.state === 'ready' ? `Searches up to ${TARGET_SEARCH_KM} km.`
+        : model.state === 'error' ? 'Target map unavailable. Connect and retry.' : 'Loading target map…';
+      if (model.state === 'ready') {
+        if (model.refreshing) text += ' Checking for map updates…';
+        else if (model.updateFailed) text += ' Using saved map; update unavailable.';
+        else if (model.checkedAt) text += ' Map checked.';
+        if (model.saveFailed) text += ' Latest update could not be saved offline.';
+      }
+      if (!targetChoiceSaved) text += ' Choice could not be saved on this device.';
+      message.textContent = text;
+      const retry = document.getElementById('target-area-retry');
+      retry.hidden = model.state !== 'error' && !model.updateFailed;
+      retry.textContent = model.state === 'ready' ? 'Retry update' : 'Retry target map';
     }
 
-    async function loadTargetModel(id) {
+    function loadTargetModel(id, force = true) {
       const model = targetModels[id];
-      model.state = 'loading';
-      if (id === targetArea) refreshTargetAreaControl();
-      try {
-        if (id === 'worldwide') {
-          const [base, overrides] = await Promise.all([
-            readTargetJSON('osm-base-mask.json'), readTargetJSON('manual-overrides.json')
-          ]);
-          const rows = parseTargetRanges(base, 'ebt-worldwide-ranges');
-          const excluded = applyWorldOverrides(rows, overrides);
-          model.rows = rows;
-          model.excluded = excluded;
-        } else {
-          model.rows = parseTargetRanges(await readTargetJSON('euro-use-eligibility.json'), 'ebt-target-ranges');
+      if (model.inFlight) return model.inFlight;
+      if (!force && Date.now() - (model.lastAttemptAt || 0) < TARGET_REFRESH_MS) return Promise.resolve();
+      model.lastAttemptAt = Date.now();
+      model.refreshing = true;
+      model.inFlight = Promise.resolve().then(async () => {
+        try {
+          if (!model.initialized) {
+            try { await restoreTargetData(id); }
+            catch (error) { console.warn('Initial target map unavailable:', id, error); }
+            model.initialized = true;
+          }
+          if (!navigator.onLine) throw new Error('Offline');
+          const sources = TARGET_SOURCES[id];
+          const data = id === 'worldwide'
+            ? await Promise.all([readTargetJSON(sources.base, true), readTargetJSON(sources.overrides, true)])
+                .then(([base, overrides]) => ({ base, overrides }))
+            : { eligibility: await readTargetJSON(sources.eligibility, true) };
+          const checkedAt = Date.now();
+          adoptTargetData(id, data, checkedAt);
+          model.updateFailed = false;
+          model.saveFailed = false;
+          try {
+            const cache = await caches.open(TARGET_DATA_CACHE);
+            await cache.put(targetDataCacheKey(id), new Response(JSON.stringify({ schema: 1, checkedAt, data }), {
+              headers: { 'Content-Type': 'application/json' }
+            }));
+          } catch (error) {
+            model.saveFailed = true;
+            console.warn('Could not save target-map update:', id, error);
+          }
+        } catch (error) {
+          model.updateFailed = true;
+          if (model.state !== 'ready') {
+            model.state = 'error';
+            model.rows = new Map();
+            model.excluded = new Set();
+            if (id === targetArea) {
+              resetRadarTarget();
+              if (currentPos) updateHUD(currentPos[0], currentPos[1]);
+            }
+          }
+          console.warn('Target-map update unavailable; keeping valid data:', id, error);
+        } finally {
+          model.refreshing = false;
+          model.inFlight = null;
+          if (id === targetArea) refreshTargetAreaControl();
         }
-        model.state = 'ready';
-      } catch (error) {
-        model.state = 'error';
-        model.rows = new Map();
-        console.warn('Target map unavailable:', id, error);
-      }
-      if (id === targetArea) {
-        resetRadarTarget();
-        refreshTargetAreaControl();
-        if (currentPos) updateHUD(currentPos[0], currentPos[1]);
-      }
+      });
+      if (id === targetArea) refreshTargetAreaControl();
+      return model.inFlight;
+    }
+
+    function refreshTargetModels(force = false) {
+      return Promise.all(Object.keys(targetModels).map(id => loadTargetModel(id, force)));
     }
 
     function isEligibleDot(i, j, model) {
@@ -2023,8 +2133,14 @@
 
     // Boot
     refreshTargetAreaControl();
-    loadTargetModel('worldwide');
-    loadTargetModel('euro-use');
+    refreshTargetModels(true);
+    setInterval(() => {
+      if (!document.hidden) refreshTargetModels();
+    }, TARGET_REFRESH_MS);
+    window.addEventListener('online', () => refreshTargetModels(true));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshTargetModels();
+    });
     loadFromStorage();
     resumeApp();
 
