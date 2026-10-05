@@ -1,4 +1,4 @@
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.1.1-rc1';
 const CACHE_PREFIX = 'ebt-dot-safari-v';
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSETS_TO_CACHE = [
