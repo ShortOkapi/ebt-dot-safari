@@ -659,10 +659,35 @@
         </a>
       </p>
 
-      <div style="font-size: 13px; color: #334155; line-height: 1.5; display: flex; flex-direction: column; gap: 12px;">
-        <div>Ferran (<b>Tuscac</b>, from Girona 🇪🇸) was the latest of several EBTors over the past few years to ask for live GPS tracking on their personal Google Dotmaps.</div>
-        <div>Miguel Viterbo (<b>lmviterbo</b>, from Lisboa 🇵🇹) had the nerve to create and direct the project, with all code generated in an AI relay: <b>Gemini</b> → <b>Claude</b> → <b>ChatGPT</b>.</div>
-        <div>The tool was rigorously audited, optimized, and field-tested by veteran developer Peter Zagler (<b>elpeza s̶p̶a̶s̶i̶b̶a̶</b>, from Linz 🇦🇹), with analysis assistance from <b>Claude</b>.</div>
+      <div style="font-size: 13px; color: #334155; line-height: 1.5; display: flex; flex-direction: column; gap: 16px;">
+        <section aria-labelledby="about-target-areas">
+          <h3 id="about-target-areas" style="margin: 0 0 8px; font-size: 14px; color: #0f172a;">Target areas</h3>
+          <p style="margin: 0 0 8px;">The radar looks for dots that are unconquered and eligible in your selected target area. Choose <b>Target area</b> in the expanded radar panel; your choice is remembered on this device.</p>
+          <ul style="margin: 0; padding-left: 18px;">
+            <li style="margin-bottom: 6px;"><b>Euro-use area:</b> curated dots on land where euros are used or widely available, excluding known unconquerable dots.</li>
+            <li><b>All land worldwide:</b> dots marked as containing land by OpenStreetMap data and manual corrections. Access, safety and euro availability are not individually verified.</li>
+          </ul>
+        </section>
+
+        <section aria-labelledby="about-disclaimer">
+          <h3 id="about-disclaimer" style="margin: 0 0 8px; font-size: 14px; color: #0f172a;">Before you set off</h3>
+          <p style="margin: 0 0 8px;">Dot Safari cannot guarantee euro banknotes in any eligible dot. We do our best to classify dots correctly, but maps can contain mistakes and conditions can change. Check access and safety before setting off, and respect local restrictions.</p>
+          <p style="margin: 0;">No dot is worth entering a dangerous or forbidden area. And if your next conquest appears to require a submarine, please question the map before buying one.</p>
+        </section>
+
+        <section aria-labelledby="about-contribute">
+          <h3 id="about-contribute" style="margin: 0 0 8px; font-size: 14px; color: #0f172a;">Help improve the Euro-use map</h3>
+          <p style="margin: 0;">Everyone is welcome to suggest corrections through <a href="https://shortokapi.github.io/ebt-target-map/" target="_blank" rel="noopener noreferrer">EBT Target Map ↗</a>. Your edits stay in your own working copy. Send a <b>Change Report</b> to Miguel / lmviterbo for review, or simply message him with the dot’s <b>[i, j]</b> reference and your reasoning. Ordinary saved edits do not change the published map.</p>
+        </section>
+
+        <section aria-labelledby="about-credits">
+          <h3 id="about-credits" style="margin: 0 0 8px; font-size: 14px; color: #0f172a;">Credits</h3>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div>Ferran (<b>Tuscac</b>, from Girona 🇪🇸) was the latest of several EBTors over the past few years to ask for live GPS tracking on their personal Google Dotmaps.</div>
+            <div>Miguel Viterbo (<b>lmviterbo</b>, from Lisboa 🇵🇹) had the nerve to create and direct the project, with all code generated in an AI relay: <b>Gemini</b> → <b>Claude</b> → <b>ChatGPT</b>.</div>
+            <div>The tool was rigorously audited, optimized, and field-tested by veteran developer Peter Zagler (<b>elpeza</b>, from Linz 🇦🇹), with analysis assistance from <b>Claude</b>.</div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -1366,7 +1391,10 @@
 
       if (event.key !== 'Tab') return;
 
-      const focusable = [aboutClose, shareButton];
+      const focusable = Array.from(
+        aboutModal.querySelectorAll('button:not([disabled]), a[href]')
+      ).filter(element => element.tabIndex >= 0 && element.getClientRects().length > 0);
+      if (!focusable.length) return;
       const currentIndex = focusable.indexOf(document.activeElement);
       const nextIndex = event.shiftKey
         ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
