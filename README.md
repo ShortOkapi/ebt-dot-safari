@@ -138,6 +138,33 @@ Your CSV is processed locally and is not uploaded by Dot Safari. Dot Safari has 
 
 EBT handles sign-in for its own download page. Dot Safari also makes network requests for background maps, application resources and target datasets. Browser location services and external map providers operate under their own privacy policies.
 
+## Places in your radar target
+
+This v2.2.0 release candidate introduces destination choices. Its prepared suggestions cover **138 test dots**, including Portugal and selected mixed border and island dots. Wider preparation is still required before the final release.
+
+1. Load your Notes file and enable GPS.
+2. Tap your current dot or the GPS marker. When there is an onward radar target and a fresh accepted GPS fix, tap **Places in radar target**.
+3. The heading identifies the radar's chosen dot. Choose a suggested place; the list shows **straight-line distance from your location**.
+4. Check the six-decimal destination coordinates and tap **Open in Google Maps**. This sends only the selected destination; Dot Safari does not continuously retarget Maps.
+
+The list does not change which dot the radar selects. Equally near dots are chosen in the existing radar controls first. There is no onward-navigation action when you are already in an eligible unconquered dot. GPS, target-area and profile changes invalidate an open picker when its reference is no longer valid; reopen it from your current dot.
+
+**Euro-use** covers the Eurozone, all other countries and territories using the euro (including Kosovo and Montenegro), and Switzerland. Automatic preparation filters locations before choosing up to five suggestions for each model. Worldwide includes Euro-use and foreign locations. Missing population remains unknown; suggestions are based on settlement type and available population, rather than a claim to the five largest places. The five approved island/land-feature exceptions are already included in this candidate's prepared data.
+
+### Choose on the map
+
+Use **Choose on the map** to inspect the radar's target dot. Pan or zoom beneath the open crosshair, or tap a point. Red one-pixel lines mark the exact dot. **Use this point** becomes available only for an inside point whose six-decimal handoff also remains inside. Borders, corners and rounding onto an edge are refused. Dot bounds still calculate at their original precision; existing four-decimal inspection labels remain display labels.
+
+In Euro-use mode, manually chosen points require confirmation that they are in the qualifying area. This is your confirmation, not an automatic territory check for arbitrary coordinates. Moving the point clears it. Use the point, then explicitly open Maps. **Cancel** restores your previous map view.
+
+### Place data and offline use
+
+**Place data unavailable** means no usable prepared data was obtained for that dot. **No listed destinations** means the prepared data covers the dot but its selected model has an empty list. Neither substitutes an outside-dot town or a cell-centre destination.
+
+Public prepared data is requested by fixed grid block; requests contain no Notes or GPS coordinate. The manifest is checked on opening, hourly while visible, on foreground return when due and after reconnection. A block is downloaded when its dot's list is opened. Validated data is saved separately from app-version caches, with checksum, version, grid and coordinate checks. Failed updates retain the last valid block. Previously visited data can therefore work offline; unvisited blocks, background maps and Google Maps may require a connection. Storage failures are reported.
+
+Prepared settlement data is © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), under the [Open Database License](https://opendatacommons.org/licenses/odbl/). Source snapshot and geographic-policy metadata are included in the manifest. The original application code remains MIT. The maintained source of the rare exceptions is the separate **destination-overrides.json** planned alongside the worldwide land overrides; resolving it and regenerating published settlement data belong to the later preparation stage. Do not edit the generated blocks to maintain exceptions.
+
 ## Before you set off
 
 Dot Safari cannot guarantee euro banknotes in any eligible dot. We do our best to classify dots correctly, but maps can contain mistakes and conditions can change. Check access and safety before setting off, and respect local restrictions.

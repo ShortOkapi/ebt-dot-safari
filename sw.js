@@ -1,4 +1,4 @@
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.2.0-rc1';
 const CACHE_PREFIX = 'ebt-dot-safari-v';
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSETS_TO_CACHE = [
@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   './euro-use-eligibility.json',
   './osm-base-mask.json',
   './manual-overrides.json',
+  './data/destinations/manifest.json',
   './site.webmanifest',
   './android-chrome-192x192.png',
   './android-chrome-512x512.png',
@@ -47,7 +48,7 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const requestUrl = new URL(event.request.url);
-  if (requestUrl.searchParams.has('ebt-map-check')) return;
+  if (requestUrl.searchParams.has('ebt-map-check') || requestUrl.searchParams.has('ebt-destination-check')) return;
   const isAppRequest = requestUrl.origin === self.location.origin;
   const isLeafletRequest = requestUrl.origin === 'https://unpkg.com';
 
