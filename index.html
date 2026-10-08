@@ -294,7 +294,7 @@
     }
 
     /* Destination picker and deliberate map-point choice. */
-    .panel[hidden], #destination-crosshair[hidden], #destination-selection[hidden] { display: none; }
+    .panel[hidden], #destination-crosshair[hidden], #destination-selection[hidden], #destination-map-area[hidden] { display: none; }
     #destination-dialog, #destination-area-dialog {
       width: 400px;
       max-width: calc(100% - 24px);
@@ -338,6 +338,7 @@
     #destination-hud-button { width: 100%; margin-top: 8px; font-size: 12px; }
     #destination-hud-button[hidden] { display: none; }
     .destination-popup-button { width: 100%; margin-top: 10px; }
+    .dot-inspection-popup .leaflet-popup-content { margin: 13px; max-width: calc(100vw - 48px); }
     .btn:disabled { background: #cbd5e1; color: #475569; cursor: not-allowed; }
     #destination-map-panel {
       z-index: 1100;
@@ -349,6 +350,15 @@
     }
     #destination-map-panel h2 { margin: 0 0 6px; font-size: 16px; }
     #destination-map-panel p { margin: 6px 0; }
+    #destination-map-status[data-invalid="true"] { color: #991b1b; font-weight: 700; }
+    #destination-map-area {
+      padding: 8px; margin: 8px 0;
+      border: 2px solid #92400e; border-radius: 8px;
+      color: #78350f; background: #fffbeb;
+    }
+    #destination-map-area[data-state="outside"] { color: #991b1b; background: #fef2f2; border-color: #b91c1c; }
+    #destination-map-area strong { display: block; font-size: 14px; }
+    #destination-map-area span { display: block; margin-top: 4px; }
     #destination-map-panel .btn-group { margin-top: 8px; }
     #destination-crosshair {
       position: absolute; z-index: 900; top: 50%; left: 50%;
@@ -710,6 +720,15 @@
       <h2 id="destination-title">Places in target dot</h2>
       <button id="destination-close" class="btn btn-about" type="button" aria-label="Close destinations">✖</button>
     </div>
+    <div class="target-area-control">
+      <label for="destination-target-area">Target area:</label>
+      <select id="destination-target-area" aria-describedby="destination-model-message">
+        <option value="worldwide">All land worldwide</option>
+        <option value="euro-use">Euro-use area</option>
+      </select>
+    </div>
+    <p id="destination-model-message" class="target-note">This also changes the radar's target area.</p>
+    <button id="destination-target-retry" class="gps-retry" type="button" hidden>Retry target map</button>
     <p id="destination-context"></p>
     <p id="destination-status" role="status" aria-live="polite"></p>
     <p>Straight-line distance from your location</p>
@@ -739,6 +758,11 @@
     <p>Pan or zoom beneath the open crosshair, or tap a point. Red lines mark the target dot.</p>
     <p id="destination-map-coordinates"></p>
     <p id="destination-map-status" role="status" aria-live="polite"></p>
+    <div id="destination-map-area" role="status" aria-live="polite" hidden>
+      <strong id="destination-map-area-title"></strong>
+      <span id="destination-map-area-detail"></span>
+      <span>Choose another point, or press “Use this point” to review the warning.</span>
+    </div>
     <div class="btn-group">
       <button id="destination-map-cancel" class="btn" type="button" style="background:#475569;">Cancel</button>
       <button id="destination-map-use" class="btn" type="button" disabled>Use this point</button>
@@ -776,7 +800,7 @@
 
         <section aria-labelledby="about-destinations">
           <h3 id="about-destinations" style="margin: 0 0 8px; font-size: 14px; color: #0f172a;">Places in your nearest target</h3>
-          <p style="margin: 0 0 8px;">With a usable GPS position and your Notes loaded, use <b>Places in target dot [row, column]</b> on the GPS panel or in your current-dot popup. It refers to the radar's chosen target, identified by the list heading. Choose a suggested place or a point on the map, check the <b>Selected destination</b> box, then explicitly open it in Google Maps. Distances are straight-line distances from your location.</p>
+          <p style="margin: 0 0 8px;">With a usable GPS position and your Notes loaded, use <b>Places in target dot [row, column]</b> on the GPS panel or in your current-dot popup. It refers to the radar's chosen target, identified by the list heading. The places-panel target-area selector also changes the radar setting, recalculates the target and clears any previous destination. Choose a suggested place or a point on the map, check the <b>Selected destination</b> box, then explicitly open it in Google Maps. Distances are straight-line distances from your location.</p>
           <p style="margin: 0 0 8px;">Suggestions currently cover Portugal and selected test dots, including Calais. English names appear beneath local names when supplied by OSM. A dot outside the trial coverage is distinguished from a failed download and an empty list. Previously loaded place data can be used offline; Google Maps and background maps may still need a connection.</p>
           <p style="margin: 0;">Euro-use includes the Eurozone, other countries and territories using the euro (including Kosovo and Montenegro), and Switzerland. Prepared country outlines check manually chosen points locally in the covered test dots. Foreign or uncertain points show a warning with a choice to proceed or choose another point. Country outlines may include territorial waters and do not verify dry land, access or safety. Place data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>, ODbL.</p>
         </section>
@@ -1541,12 +1565,18 @@
       button.type = 'button'; button.className = 'btn destination-popup-button'; button.textContent = 'Places in target dot';
       button.addEventListener('click', openDestinationPicker);
       action.append(hint, button); content.append(action);
-      const popup = L.popup().setLatLng(latlng).setContent(content);
+      const popupWidth = Math.max(120, Math.min(320, map.getSize().x - 48));
+      const popup = L.popup({ minWidth: popupWidth, maxWidth: popupWidth, className: 'dot-inspection-popup' }).setLatLng(latlng).setContent(content);
       destinationPopup = { popup, dot: [i, j], action, button };
       popup.on('remove', () => { if (destinationPopup?.popup === popup) destinationPopup = null; });
       popup.openOn(map); refreshDestinationUI();
     }
     map.on('click', event => openDotPopup(event.latlng));
+    map.on('resize', () => {
+      if (!destinationPopup) return;
+      const popup = destinationPopup.popup, width = Math.max(120, Math.min(320, map.getSize().x - 48));
+      popup.options.minWidth = width; popup.options.maxWidth = width; popup.update();
+    });
 
     // Prepared destinations are public data. No Notes or GPS coordinates enter requests.
     const DESTINATION_ROOT = new URL('./data/destinations/', window.location.href);
@@ -1556,6 +1586,7 @@
     const destinationData = { manifest: null, inFlight: null, lastAttemptAt: 0, failed: false, blocks: new Map() };
     const destinationDialog = document.getElementById('destination-dialog');
     const destinationAreaDialog = document.getElementById('destination-area-dialog');
+    const destinationTargetAreaSelect = document.getElementById('destination-target-area');
     let destinationSession = null;
     let destinationReturnFocus = null;
     let destinationPopup = null;
@@ -1850,27 +1881,78 @@
       const context = activeDestinationContext();
       if (!context) return;
       destinationReturnFocus = document.activeElement;
+      beginDestinationSession(context);
+    }
+    function beginDestinationSession(context) {
       destinationSession = { context, request: 0, result: null, selected: null, invalid: false };
       document.getElementById('destination-list').replaceChildren();
       document.getElementById('destination-selection').hidden = true;
       document.getElementById('destination-maps').hidden = true;
+      document.getElementById('destination-maps').removeAttribute('href');
       document.getElementById('destination-retry').hidden = true;
       document.getElementById('destination-choose-map').disabled = false;
       document.getElementById('destination-title').textContent = `Places in target dot [${context.dot.join(', ')}]`;
       const currentDot = destinationDot(...currentPos);
       document.getElementById('destination-context').textContent = `Nearest target from your GPS position in dot [${currentDot.join(', ')}] · ${context.model === 'euro-use' ? 'Euro-use area' : 'All land worldwide'}`;
-      destinationDialog.showModal();
+      destinationTargetAreaSelect.value = targetArea;
+      refreshDestinationModelControl();
+      if (!destinationDialog.open) destinationDialog.showModal();
       requestDestinationPlaces();
+    }
+    function refreshDestinationModelControl() {
+      destinationTargetAreaSelect.value = targetArea;
+      const model = targetModels[targetArea];
+      const message = model.state === 'ready' ? 'This also changes the radar’s target area and recalculates its target.'
+        : model.state === 'error' ? 'Target map unavailable. Connect and retry.' : 'Loading target map…';
+      document.getElementById('destination-model-message').textContent = message + (!targetChoiceSaved ? ' Choice could not be saved on this device.' : '');
+      document.getElementById('destination-target-retry').hidden = model.state !== 'error';
+    }
+    function destinationModelReferenceMatches(session) {
+      return destinationSession === session && session.context.model === targetArea && session.context.profile === dotMap &&
+        gpsEnabled && !document.hidden && geoWatchId !== null && currentGPSState === 'active' && currentPos && lastFixAt && totalNotesCount > 0;
+    }
+    function showDestinationModelResult() {
+      const context = activeDestinationContext();
+      if (context) { beginDestinationSession(context); return; }
+      document.getElementById('destination-title').textContent = 'Places in nearest target';
+      const currentDot = currentPos ? destinationDot(...currentPos) : null;
+      document.getElementById('destination-context').textContent = currentDot ? `GPS dot [${currentDot.join(', ')}]` : 'GPS position unavailable';
+      document.getElementById('destination-status').textContent = targetModels[targetArea].state !== 'ready'
+        ? 'Places cannot be chosen until the selected target map is available.'
+        : lastRadarTarget?.isHere ? 'You are already in an eligible unconquered dot for this target area. Choose another target area or close this panel.'
+        : lastRadarResult?.status === 'outside' ? 'Outside the selected target area. Choose another target area or close this panel.'
+        : `No onward target is available within ${TARGET_SEARCH_KM} km for this target area. Choose another target area or close this panel.`;
+    }
+    async function changeDestinationTargetArea() {
+      if (!destinationSession) return;
+      changeTargetArea(destinationTargetAreaSelect.value);
+      const session = { context: { model: targetArea, profile: dotMap }, request: 0, selected: null, result: null,
+        invalid: true, pendingModel: targetModels[targetArea].state !== 'ready' };
+      destinationSession = session;
+      refreshDestinationModelControl();
+      if (!destinationModelReferenceMatches(session)) { session.invalid = false; invalidateDestinationPicker(); return; }
+      if (session.pendingModel) {
+        document.getElementById('destination-title').textContent = 'Places in nearest target';
+        document.getElementById('destination-context').textContent = `GPS dot [${destinationDot(...currentPos).join(', ')}]`;
+        document.getElementById('destination-status').textContent = 'Loading the selected target map before choosing places…';
+        await loadTargetModel(targetArea);
+        if (!session.pendingModel || !destinationModelReferenceMatches(session)) return;
+        session.pendingModel = false;
+        updateHUD(currentPos[0], currentPos[1]);
+      }
+      showDestinationModelResult();
+      refreshDestinationModelControl();
     }
     function closeDestinationPicker() {
       stopDestinationMapChoice();
       destinationSession = null;
       destinationDialog.close();
-      const focus = destinationReturnFocus?.isConnected ? destinationReturnFocus : map.getContainer();
+      const focus = destinationReturnFocus?.isConnected && destinationReturnFocus.getClientRects().length ? destinationReturnFocus : map.getContainer();
       focus.focus({ preventScroll: true });
     }
     function invalidateDestinationPicker() {
-      if (!destinationSession || destinationSession.invalid) return;
+      if (!destinationSession || destinationSession.invalid && !destinationSession.pendingModel) return;
+      destinationSession.pendingModel = false;
       destinationSession.invalid = true; destinationSession.selected = null; destinationSession.request++;
       const wasChoosing = !!destinationMapChoice;
       stopDestinationMapChoice();
@@ -1884,6 +1966,7 @@
       if (wasChoosing && !document.hidden) destinationDialog.showModal();
     }
     function refreshDestinationUI() {
+      refreshDestinationModelControl();
       const context = activeDestinationContext(), hudButton = document.getElementById('destination-hud-button');
       hudButton.hidden = !context;
       hudButton.disabled = !context;
@@ -1896,7 +1979,9 @@
         destinationPopup.button.textContent = title;
       }
       if (destinationSession) {
-        if (!destinationContextMatches()) invalidateDestinationPicker();
+        if (destinationSession.pendingModel) {
+          if (!destinationModelReferenceMatches(destinationSession)) invalidateDestinationPicker();
+        } else if (!destinationContextMatches()) invalidateDestinationPicker();
         else if (!destinationMapChoice) renderDestinationPlaces();
       }
     }
@@ -1924,7 +2009,19 @@
       const area = check.valid && euro ? classifyDestinationArea(check.point) : null;
       destinationMapChoice.area = area;
       document.getElementById('destination-map-coordinates').textContent = `${centre.lat.toFixed(6)}, ${centre.lng.toFixed(6)}`;
-      document.getElementById('destination-map-status').textContent = check.message + (area ? ' ' + area.message : '');
+      const status = document.getElementById('destination-map-status'), warning = document.getElementById('destination-map-area');
+      const previousAreaState = warning.hidden ? null : warning.dataset.state;
+      status.textContent = check.message + (area?.status === 'inside' ? ' ' + area.message : '');
+      status.dataset.invalid = String(!check.valid);
+      warning.hidden = !area || area.status === 'inside';
+      if (!warning.hidden) {
+        warning.dataset.state = area.status;
+        const title = document.getElementById('destination-map-area-title'), detail = document.getElementById('destination-map-area-detail');
+        const heading = area.status === 'outside' ? '⚠ Outside the Euro-use area' : '⚠ Euro-use check is uncertain';
+        if (title.textContent !== heading) title.textContent = heading;
+        if (detail.textContent !== area.message) detail.textContent = area.message;
+        if (previousAreaState !== area.status) warning.scrollIntoView({ block: 'nearest' });
+      }
       document.getElementById('destination-map-use').disabled = !check.valid;
     }
     function classifyDestinationArea(point) {
@@ -1996,6 +2093,8 @@
     document.getElementById('destination-map-cancel').addEventListener('click', () => finishDestinationMapChoice(false));
     document.getElementById('destination-map-use').addEventListener('click', () => finishDestinationMapChoice(true));
     document.getElementById('destination-hud-button').addEventListener('click', openDestinationPicker);
+    destinationTargetAreaSelect.addEventListener('change', changeDestinationTargetArea);
+    document.getElementById('destination-target-retry').addEventListener('click', changeDestinationTargetArea);
     function cancelDestinationAreaWarning() {
       destinationAreaDialog.close(); document.getElementById('destination-map-use').focus({ preventScroll: true });
     }
@@ -2411,8 +2510,11 @@
 
     const targetAreaSelect = document.getElementById('target-area');
     targetAreaSelect.value = targetArea;
-    targetAreaSelect.addEventListener('change', () => {
-      targetArea = targetAreaSelect.value;
+    function changeTargetArea(id) {
+      if (!Object.hasOwn(targetModels, id)) return;
+      targetArea = id;
+      targetAreaSelect.value = targetArea;
+      destinationTargetAreaSelect.value = targetArea;
       try {
         localStorage.setItem(TARGET_AREA_KEY, targetArea);
         targetChoiceSaved = true;
@@ -2420,7 +2522,8 @@
       resetRadarTarget();
       refreshTargetAreaControl();
       if (currentPos) updateHUD(currentPos[0], currentPos[1]);
-    });
+    }
+    targetAreaSelect.addEventListener('change', () => changeTargetArea(targetAreaSelect.value));
     document.getElementById('target-area-retry').addEventListener('click', () => loadTargetModel(targetArea));
     document.getElementById('hud-details').addEventListener('click', event => {
       const button = event.target.closest('button[data-target-i]');
