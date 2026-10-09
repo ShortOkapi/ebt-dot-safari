@@ -2155,6 +2155,7 @@
       const area = destinationMapChoice.area;
       if (use && area && area.status !== 'inside' && !allowAreaWarning) {
         document.getElementById('destination-area-title').textContent = area.status === 'outside' ? 'Outside the Euro-use area' : 'Euro-use check is uncertain';
+        document.getElementById('destination-area-message').textContent = area.status === 'outside'
           ? `${area.message} Your target model is Euro-use. Use this point anyway, or choose another point?`
           : `${area.message} Use this point anyway, or choose another point?`;
         destinationAreaDialog.showModal(); return;
