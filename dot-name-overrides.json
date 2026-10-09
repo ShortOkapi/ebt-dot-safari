@@ -1,0 +1,22 @@
+{
+  "format": "ebt-dot-name-overrides",
+  "formatVersion": 1,
+  "description": "Preferred display names only. Omit Dot and [row, column]: the app adds them. name applies to both models; optional nameWorldwide and nameEuroUse take precedence. exclude lists dots that should show only their numeric reference.",
+  "include": [
+    {
+      "dot": [
+        459,
+        402
+      ],
+      "name": "Praia da Adraga"
+    },
+    {
+      "dot": [
+        460,
+        403
+      ],
+      "name": "Torres Vedras"
+    }
+  ],
+  "exclude": []
+}

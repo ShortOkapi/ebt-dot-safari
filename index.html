@@ -336,9 +336,14 @@
     #destination-selection strong { display: block; font-size: 16px; }
     #destination-selection span { display: block; margin-top: 4px; }
     .destination-selection-label { color: #9a3412; font-size: 12px; font-weight: 700; }
-    #destination-hud-button { width: 100%; margin-top: 8px; font-size: 12px; }
-    #destination-hud-button[hidden] { display: none; }
-    .destination-popup-button { width: 100%; margin-top: 10px; }
+    #destination-hud-button, #destination-hud-this { width: 100%; margin-top: 8px; font-size: 12px; min-height: 44px; white-space: normal; }
+    .destination-popup-button { width: 100%; margin-top: 8px; white-space: normal; }
+    .dot-popup-heading { display: block; font-size: 15px; overflow-wrap: anywhere; }
+    .dot-popup-badge { margin: 6px 0; }
+    .destination-heading h2 { min-width: 0; overflow-wrap: anywhere; }
+    .destination-tie { width: 100%; min-height: 44px; padding: 8px; margin: 3px 0; text-align: left; white-space: normal; border: 1px solid #94a3b8; border-radius: 6px; background: white; color: #0f172a; }
+    .destination-tie[aria-pressed="true"] { border: 2px solid #c2410c; }
+    .destination-tie:focus-visible { outline: 2px solid #c2410c; outline-offset: 2px; }
     .dot-inspection-popup .leaflet-popup-content { margin: 13px; max-width: calc(100vw - 48px); }
     .btn:disabled { background: #cbd5e1; color: #475569; cursor: not-allowed; }
     #destination-map-panel {
@@ -697,7 +702,9 @@
         Allow location access when prompted...
       </div>
       <p id="radar-last-fix-note" class="target-note" role="status" hidden>Based on the last usable GPS position. Waiting for a new fix.</p>
-      <button id="destination-hud-button" class="btn" type="button" hidden disabled>Places in target dot</button>
+      <button id="destination-hud-this" class="btn" type="button" disabled>Places in this dot</button>
+      <button id="destination-hud-button" class="btn" type="button" disabled>Places in nearest other target</button>
+      <p id="destination-hud-message" class="target-note">Waiting for a usable GPS fix.</p>
 
       <div id="gps-status" class="gps-status">
         <span id="gps-message">Requesting GPS...</span>
@@ -719,7 +726,7 @@
 
   <dialog id="destination-dialog" aria-labelledby="destination-title">
     <div class="destination-heading">
-      <h2 id="destination-title">Places in target dot</h2>
+      <h2 id="destination-title">Places in this dot</h2>
       <button id="destination-close" class="btn btn-about" type="button" aria-label="Close destinations">✖</button>
     </div>
     <div class="target-area-control">
@@ -732,8 +739,10 @@
     <p id="destination-model-message" class="target-note">This also changes the radar's target area.</p>
     <button id="destination-target-retry" class="gps-retry" type="button" hidden>Retry target map</button>
     <p id="destination-context"></p>
+    <p id="destination-name-message" class="target-note" hidden></p>
+    <div id="destination-ties" role="group" aria-label="Target dots at equal distance"></div>
     <p id="destination-status" role="status" aria-live="polite"></p>
-    <p>Straight-line distance from your location</p>
+    <p id="destination-distance-label">Straight-line distance from the starting point</p>
     <div id="destination-list" role="group" aria-label="Suggested destinations"></div>
     <button id="destination-retry" class="gps-retry" type="button" hidden>Retry place data</button>
     <button id="destination-choose-map" class="btn" type="button">Choose on the map</button>
@@ -801,10 +810,11 @@
         </section>
 
         <section aria-labelledby="about-destinations">
-          <h3 id="about-destinations" style="margin: 0 0 8px; font-size: 14px; color: #0f172a;">Places in your nearest target</h3>
-          <p style="margin: 0 0 8px;">With a usable GPS position and your Notes loaded, use <b>Places in target dot [row, column]</b> on the GPS panel or in your current-dot popup. It refers to the radar's chosen target, identified by the list heading. The places-panel target-area selector also changes the radar setting, recalculates the target and retains a chosen destination when it still belongs to the same target dot and qualifies for that model. Choose a suggested place or a point on the map, check the <b>Selected destination</b> box, then explicitly open it in Google Maps. Distances are straight-line distances from your location. After a temporary GPS loss or returning to the app, the panel recovers on a fresh usable fix and rechecks your choice. The target has a yellow halo; a waiting GPS reading is labelled as last known.</p>
-          <p style="margin: 0 0 8px;">Suggestions currently cover Portugal and selected test dots, including Calais. English names appear beneath local names when supplied by OSM. A dot outside the trial coverage is distinguished from a failed download and an empty list. Previously loaded place data can be used offline; Google Maps and background maps may still need a connection.</p>
-          <p style="margin: 0;">Euro-use includes the Eurozone, other countries and territories using the euro (including Kosovo and Montenegro), and Switzerland. Prepared country outlines check manually chosen points locally in the covered test dots. Foreign or uncertain points show a warning with a choice to proceed or choose another point. Country outlines may include territorial waters and do not verify dry land, access or safety. Place data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>, ODbL.</p>
+          <h3 id="about-destinations" style="margin: 0 0 8px; font-size: 14px; color: #0f172a;">Places and planning</h3>
+          <p style="margin: 0 0 8px;">The GPS panel and every dot popup offer <b>Places in this dot</b> and <b>Places in nearest other target</b>. Inspecting a dot needs no Notes or GPS. Finding a personal target needs your Notes and excludes the starting dot, even when that dot is eligible and unconquered. The named heading identifies the whole dot; choose a suggested place or a manual point to set the arrival location.</p>
+          <p style="margin: 0 0 8px;">A map plan uses the point you clicked as its start, including its Google Maps route origin. Its target-area selector is independent of the live GPS radar. GPS place lists use your accepted GPS position, and their selector also changes the radar's area. Distances are straight-line distances. A chosen destination is retained across an area change when it still belongs to the same dot and qualifies. Check the <b>Selected destination</b> box before opening Maps.</p>
+          <p style="margin: 0 0 8px;">The live radar dot has a yellow halo; a map inspection or plan uses blue while its panel is open. Suggestions and automatic dot names currently cover 139 test dots, including Portugal and Calais. English place names appear beneath local names when supplied by OSM. An uncovered dot, failed download and empty list have different messages. Previously loaded place data and names can work offline; Google Maps and background maps may need a connection.</p>
+          <p style="margin: 0;">Euro-use includes the Eurozone, all other countries and territories using the euro (including Kosovo and Montenegro), and Switzerland. Prepared country outlines check manual points in the covered trial dots. Foreign or uncertain points offer a warning and a choice to proceed. Outlines may include territorial waters and do not verify dry land, access or safety. Place data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>, ODbL.</p>
         </section>
 
         <section aria-labelledby="about-disclaimer">
@@ -1547,37 +1557,62 @@
       return `<span class="stat-badge unconquered">UNCONQUERED</span>`;
     }
 
+    function sizeDotPopup(popup) {
+      const rect = map.getContainer().getBoundingClientRect(), controls = document.getElementById('control-panel'), hud = document.getElementById('hud-panel');
+      const top = controls.hidden ? 8 : Math.max(8, controls.getBoundingClientRect().bottom - rect.top + 8);
+      const bottom = hud.hidden ? 8 : Math.max(8, rect.bottom - hud.getBoundingClientRect().top + 8);
+      const width = Math.max(120, Math.min(320, map.getSize().x - 48));
+      Object.assign(popup.options, { minWidth: width, maxWidth: width, maxHeight: Math.max(80, map.getSize().y - top - bottom - 60),
+        autoPanPaddingTopLeft: L.point(8, top), autoPanPaddingBottomRight: L.point(8, bottom) });
+    }
     function openDotPopup(latlng) {
       if (destinationMapChoice) { map.panTo(latlng, { animate: false }); return; }
-      const lat = latlng.lat, lon = latlng.lng;
-      const i = Math.floor((lat - minLat) / dotH), j = Math.floor((lon - minLon) / dotW);
-      const count = dotMap.get(`${i}_${j}`) || 0;
+      map.closePopup();
+      // Make room for both actions, then restore the previous panel state on close.
+      const panels = ['control-panel', 'hud-panel'].map(id => ({ panel: document.getElementById(id), collapsed: document.getElementById(id).classList.contains('collapsed') }));
+      const savingHelpOpen = document.getElementById('csv-saving-help').open;
+      for (const item of panels) setPanelCollapsed(item.panel, true);
+      fitPanels();
+      const lat = latlng.lat, lon = latlng.lng, dot = destinationDot(lat, lon), [i, j] = dot;
       const south = (minLat + i * dotH).toFixed(4), north = (minLat + (i + 1) * dotH).toFixed(4);
       const west = (minLon + j * dotW).toFixed(4), east = (minLon + (j + 1) * dotW).toFixed(4);
-      const content = document.createElement('div');
-      content.innerHTML = `
-        <div style="font-size:14px; margin-bottom:6px;"><b>Dot [${i}, ${j}]</b></div>
-        <div style="margin-bottom:6px;">${createBadge(count)}</div>
-        <div style="font-size:11px; color:#666; border-top:1px solid #ddd; padding-top:4px;">
-          Lat: ${south}° to ${north}°<br>Lon: ${west}° to ${east}°
-        </div>`;
-      const action = document.createElement('div'), button = document.createElement('button');
-      const hint = document.createElement('p');
-      hint.textContent = 'Nearest target from your GPS position:'; hint.style.cssText = 'font-size:11px; margin:8px 0 0;';
-      button.type = 'button'; button.className = 'btn destination-popup-button'; button.textContent = 'Places in target dot';
-      button.addEventListener('click', openDestinationPicker);
-      action.append(hint, button); content.append(action);
+      const content = document.createElement('div'), heading = document.createElement('strong'), badge = document.createElement('div');
+      heading.className = 'dot-popup-heading'; badge.className = 'dot-popup-badge';
+      content.append(heading, badge);
+      const coordinates = document.createElement('div'); coordinates.style.cssText = 'font-size:11px; color:#666; border-top:1px solid #ddd; padding-top:4px;';
+      coordinates.textContent = `Lat: ${south}° to ${north}° · Lon: ${west}° to ${east}°`;
+      const reference = document.createElement('p'); reference.className = 'target-note';
+      reference.textContent = `Starting map point: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+      content.append(coordinates, reference);
+      const action = document.createElement('div'), button = document.createElement('button'), other = document.createElement('button'), hint = document.createElement('p');
+      button.type = 'button'; button.className = 'btn destination-popup-button'; button.textContent = 'Places in this dot';
+      other.type = 'button'; other.className = 'btn destination-popup-button'; other.textContent = 'Places in nearest other target';
+      hint.className = 'target-note';
+      const start = kind => () => openMapDestinationPicker({ lat, lon }, kind);
+      button.addEventListener('click', start('this')); other.addEventListener('click', start('other'));
+      action.append(button, other, hint); content.append(action);
       const popupWidth = Math.max(120, Math.min(320, map.getSize().x - 48));
       const popup = L.popup({ minWidth: popupWidth, maxWidth: popupWidth, className: 'dot-inspection-popup' }).setLatLng(latlng).setContent(content);
-      destinationPopup = { popup, dot: [i, j], action, button };
-      popup.on('remove', () => { if (destinationPopup?.popup === popup) destinationPopup = null; });
+      sizeDotPopup(popup);
+      const state = { popup, dot, origin: { lat, lon }, heading, badge, action, button, other, hint };
+      destinationPopup = state;
+      popup.on('remove', () => {
+        if (destinationPopup === state) destinationPopup = null;
+        for (const item of panels) if (!item.collapsed && item.panel.classList.contains('collapsed')) setPanelCollapsed(item.panel, false);
+        document.getElementById('csv-saving-help').open = savingHelpOpen;
+        fitPanels();
+      });
       popup.openOn(map); refreshDestinationUI();
+      loadDestinationCell(dot, planningTargetArea()).then(result => {
+        rememberDotNames(dot, result.names);
+        if (destinationPopup === state) { refreshDestinationPopup(); popup.update(); }
+      }).catch(() => {});
     }
     map.on('click', event => openDotPopup(event.latlng));
     map.on('resize', () => {
       if (!destinationPopup) return;
-      const popup = destinationPopup.popup, width = Math.max(120, Math.min(320, map.getSize().x - 48));
-      popup.options.minWidth = width; popup.options.maxWidth = width; popup.update();
+      const popup = destinationPopup.popup;
+      sizeDotPopup(popup); popup.update();
     });
 
     // Prepared destinations are public data. No Notes or GPS coordinates enter requests.
@@ -1688,6 +1723,9 @@
       if (cells.length !== descriptor.cells.length || cells.some(cell => !descriptor.cells.includes(cell))) throw new Error('Destination block coverage mismatch');
       for (const [cell, value] of Object.entries(data.cells)) {
         if (!value || !Array.isArray(value.p) || value.p.length > 10 || !Array.isArray(value.w) || !Array.isArray(value.e) || !['complete', 'partial'].includes(value.q)) throw new Error('Invalid destination lists');
+        if (value.n !== undefined && (!value.n || typeof value.n !== 'object' || Array.isArray(value.n) ||
+            Object.keys(value.n).length !== 2 || !['worldwide', 'euro-use'].every(model => Object.hasOwn(value.n, model) &&
+              (value.n[model] === null || typeof value.n[model] === 'string' && !!value.n[model].trim() && value.n[model].length <= 1000)))) throw new Error('Invalid dot names');
         const ids = new Set(), dot = cell.split('_').map(Number);
         for (const point of value.p) {
           if (!Array.isArray(point) || point.length !== (data.formatVersion === 2 ? 10 : 9) || typeof point[0] !== 'string' || !/^(osm:(node|way|relation):[1-9]\d*|manual:.+)$/.test(point[0]) ||
@@ -1755,7 +1793,7 @@
         const cell = data.cells[destinationDotKey(dot)];
         if (!cell) return unavailable;
         const points = cell[model === 'euro-use' ? 'e' : 'w'].map(index => cell.p[index]);
-        return { status: cell.q === 'partial' ? 'partial' : points.length ? 'listed' : 'empty', points, allPoints: cell.p, boundaries: data.boundaries || null, stale, saveFailed };
+        return { status: cell.q === 'partial' ? 'partial' : points.length ? 'listed' : 'empty', points, allPoints: cell.p, names: cell.n || null, boundaries: data.boundaries || null, stale, saveFailed };
       };
       let previous = destinationData.blocks.get(blockKey);
       if (!previous) {
@@ -1790,20 +1828,114 @@
         return unavailable;
       }
     }
+    // Display names never identify a Maps arrival point or change grid eligibility.
+    const dotNameData = { generated: new Map(), overrides: new Map(), excluded: new Set(), inFlight: null, lastAttemptAt: 0, failed: false };
+    let planningArea = null;
+    let destinationOutline = null;
+    function planningTargetArea() { return planningArea || targetArea; }
+    function validDotName(name) { return typeof name === 'string' && !!name.trim() && name.length <= 600; }
+    function validateDotNameOverrides(data) {
+      if (data?.format !== 'ebt-dot-name-overrides' || data.formatVersion !== 1 || !Array.isArray(data.include) || !Array.isArray(data.exclude) ||
+          data.include.length > 50000 || data.exclude.length > 50000) throw new Error('Invalid dot names');
+      const names = new Map(), excluded = new Set();
+      for (const entry of data.include) {
+        if (!entry || !validDestinationDot(entry.dot) || names.has(destinationDotKey(entry.dot))) throw new Error('Invalid or duplicate named dot');
+        const fields = ['name', 'nameWorldwide', 'nameEuroUse'];
+        if (!fields.some(field => validDotName(entry[field])) || fields.some(field => Object.hasOwn(entry, field) && !validDotName(entry[field]))) throw new Error('Invalid dot name');
+        names.set(destinationDotKey(entry.dot), { ...entry });
+      }
+      for (const dot of data.exclude) {
+        if (!validDestinationDot(dot) || excluded.has(destinationDotKey(dot))) throw new Error('Invalid unnamed dot');
+        excluded.add(destinationDotKey(dot));
+      }
+      return { names, excluded };
+    }
+    async function refreshDotNameOverrides(force = false) {
+      if (dotNameData.inFlight) return dotNameData.inFlight;
+      if (!force && Date.now() - dotNameData.lastAttemptAt < DESTINATION_REFRESH_MS) return;
+      dotNameData.lastAttemptAt = Date.now();
+      dotNameData.inFlight = (async () => {
+        const adopt = data => { const checked = validateDotNameOverrides(data); dotNameData.overrides = checked.names; dotNameData.excluded = checked.excluded; };
+        if (!dotNameData.loaded) {
+          let restored = false;
+          try { const saved = await (await caches.open(DESTINATION_DATA_CACHE)).match(destinationCacheKey('dot-name-overrides')); if (saved) { adopt(await saved.json()); restored = true; } }
+          catch {}
+          try { if (!restored) adopt(JSON.parse(await fetchDestinationText(new URL('./dot-name-overrides.json', window.location.href)))); }
+          catch {}
+          dotNameData.loaded = true;
+        }
+        try {
+          const body = await fetchDestinationText(new URL('./dot-name-overrides.json', window.location.href), true), data = JSON.parse(body);
+          adopt(data); dotNameData.failed = false;
+          try { await (await caches.open(DESTINATION_DATA_CACHE)).put(destinationCacheKey('dot-name-overrides'), new Response(body)); } catch {}
+        } catch { dotNameData.failed = true; }
+      })().finally(() => { dotNameData.inFlight = null; refreshDestinationUI(); });
+      return dotNameData.inFlight;
+    }
+    function rememberDotNames(dot, names) {
+      if (!names) return;
+      const key = destinationDotKey(dot);
+      dotNameData.generated.delete(key); dotNameData.generated.set(key, names);
+      while (dotNameData.generated.size > 384) dotNameData.generated.delete(dotNameData.generated.keys().next().value);
+    }
+    function destinationDotLabel(dot, model) {
+      const key = destinationDotKey(dot), entry = dotNameData.overrides.get(key);
+      const preferred = entry?.[model === 'euro-use' ? 'nameEuroUse' : 'nameWorldwide'] || entry?.name;
+      const name = dotNameData.excluded.has(key) ? null : preferred || dotNameData.generated.get(key)?.[model];
+      return `${name ? name + ' ' : ''}Dot [${dot.join(', ')}]`;
+    }
+    function destinationGPSReady() {
+      return gpsEnabled && !document.hidden && geoWatchId !== null && currentGPSState === 'active' && currentPos && lastFixAt && !gpsPermissionDenied;
+    }
+    function destinationOrigin(intent) {
+      return intent.source === 'gps' ? destinationGPSReady() ? { lat: currentPos[0], lon: currentPos[1] } : null : intent.origin;
+    }
+    function inspectDestinationIntent(intent) {
+      const origin = destinationOrigin(intent);
+      if (!origin) return { status: 'gps' };
+      const originDot = destinationDot(origin.lat, origin.lon), model = targetModels[intent.model];
+      if (!validDestinationDot(originDot)) return { status: 'invalid-origin' };
+      const base = { source: intent.source, kind: intent.kind, model: intent.model, origin, originDot, profile: intent.kind === 'other' ? dotMap : null };
+      if (intent.kind === 'this') return { status: 'target', context: { ...base, dot: originDot }, result: null };
+      if (totalNotesCount === 0) return { status: 'no-profile' };
+      // A read-only view excludes the start without adding a fictitious conquest to Notes.
+      const originKey = destinationDotKey(originDot), conquered = { has: key => key === originKey || dotMap.has(key) };
+      const result = findEligibleTargets(origin.lat, origin.lon, conquered, model);
+      if (result.status !== 'target') return { status: result.status, result };
+      const tied = result.candidates.find(point => `${point.i}_${point.j}` === intent.targetKey);
+      const radar = intent.source === 'gps' && intent.model === targetArea && lastRadarTarget && !lastRadarTarget.isHere
+        ? chooseRadarTarget(result, lastRadarTarget).primary : null;
+      const target = tied || radar || result.candidates[0];
+      return { status: 'target', context: { ...base, dot: [target.i, target.j], target }, result };
+    }
     function activeDestinationContext() {
-      // The accepted fix determines distances; a missing/fading fix disables this new action.
-      if (!gpsEnabled || document.hidden || geoWatchId === null || currentGPSState !== 'active' || !currentPos || !lastFixAt ||
-          totalNotesCount === 0 || !lastRadarTarget || lastRadarTarget.isHere || !isEligibleDot(lastRadarTarget.i, lastRadarTarget.j, targetModels[targetArea]) ||
-          dotMap.has(`${lastRadarTarget.i}_${lastRadarTarget.j}`)) return null;
-      return { source: 'gps', dot: [lastRadarTarget.i, lastRadarTarget.j], model: targetArea, profile: dotMap };
+      return inspectDestinationIntent({ source: 'gps', kind: 'other', model: targetArea }).context || null;
     }
     function destinationContextMatches() {
-      const now = activeDestinationContext(), session = destinationSession;
-      return !!(now && session && !session.invalid && now.model === session.context.model && now.profile === session.context.profile &&
-        destinationDotKey(now.dot) === destinationDotKey(session.context.dot));
+      const session = destinationSession;
+      if (!session || session.invalid || document.hidden || session.intent.source === 'gps' && session.intent.model !== targetArea) return false;
+      const now = inspectDestinationIntent(session.intent).context, before = session.context;
+      return !!(now && before?.dot && now.model === before.model && now.profile === before.profile &&
+        destinationDotKey(now.dot) === destinationDotKey(before.dot));
     }
     function destinationDistance(point) {
-      return map.distance(currentPos, [point.lat, point.lon]) / 1000;
+      const origin = destinationOrigin(destinationSession.intent);
+      return map.distance([origin.lat, origin.lon], [point.lat, point.lon]) / 1000;
+    }
+    function refreshDestinationOutline() {
+      const session = destinationSession;
+      const context = destinationContextMatches() ? session.context : null;
+      const show = context && (context.source === 'map' || context.kind === 'other' && lastRadarTarget?.isHere);
+      const key = show ? destinationDotKey(context.dot) : null;
+      if (destinationOutline?.key === key) return;
+      if (destinationOutline) { map.removeLayer(destinationOutline.halo); map.removeLayer(destinationOutline.border); destinationOutline = null; }
+      if (!key) return;
+      if (!map.getPane('planning-border-pane')) {
+        const pane = map.createPane('planning-border-pane'); pane.style.zIndex = '455'; pane.style.pointerEvents = 'none';
+      }
+      const bounds = destinationBounds(context.dot), options = { pane: 'planning-border-pane', fill: false, interactive: false };
+      destinationOutline = { key, halo: L.rectangle(bounds, { ...options, color: '#38bdf8', weight: 5, opacity: 0.55 }).addTo(map),
+        border: L.rectangle(bounds, { ...options, color: '#ff0000', weight: 1, opacity: 1 }).addTo(map) };
     }
     function destinationCountry(code) {
       if (!code) return '';
@@ -1854,6 +1986,10 @@
       const url = new URL('https://www.google.com/maps/dir/');
       url.searchParams.set('api', '1');
       url.searchParams.set('destination', `${point.lat.toFixed(6)},${point.lon.toFixed(6)}`);
+      if (destinationSession.context.source === 'map') {
+        const origin = destinationSession.context.origin;
+        url.searchParams.set('origin', `${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}`);
+      }
       link.href = url.href;
       link.setAttribute('aria-label', `Open ${point.name} in Google Maps`);
     }
@@ -1891,6 +2027,7 @@
       const result = await loadDestinationCell(session.context.dot, session.context.model, force);
       if (destinationSession !== session || token !== session.request || !destinationContextMatches()) return;
       session.result = result;
+      rememberDotNames(session.context.dot, result.names);
       const choice = session.retainedChoice || (session.selected && !session.selected.manual ? destinationChoiceToRetain(session) : null);
       if (choice) {
         session.selected = retainedDestination(choice, session.context, result);
@@ -1906,158 +2043,216 @@
       if (choice && !session.selected) message += ' The previous destination could not be kept for this target and area. Choose a destination again.';
       document.getElementById('destination-status').textContent = message;
       document.getElementById('destination-retry').hidden = result.status !== 'unavailable' && !result.stale;
+      renderDestinationHeadings(); renderDestinationTargets(); refreshDestinationOutline();
       renderDestinationPlaces();
       reviewRetainedDestinationArea();
     }
-    function openDestinationPicker() {
-      const context = activeDestinationContext();
-      if (!context) return;
-      destinationReturnFocus = document.activeElement;
-      beginDestinationSession(context);
+    function destinationReason(status) {
+      return status === 'no-profile' ? 'Load your EBT Notes file to find an eligible unconquered target. You can inspect places in this dot without it.'
+        : status === 'gps' ? 'Waiting for a usable GPS fix. This panel will recover automatically.'
+        : status === 'loading' ? 'Loading the selected target map…'
+        : status === 'error' ? 'Target map unavailable. Connect and retry.'
+        : status === 'invalid-origin' ? 'This starting point is outside the supported legacy grid.'
+        : `No other eligible unconquered target within ${TARGET_SEARCH_KM} km. The starting dot is excluded.`;
     }
-    function beginDestinationSession(context, retainedChoice = null) {
-      destinationSession = { context, request: 0, result: null, selected: null, invalid: false, retainedChoice };
+    function openDestinationPicker(kind = 'other') {
+      if (!destinationGPSReady()) return;
+      destinationReturnFocus = document.activeElement;
+      beginDestinationIntent({ source: 'gps', kind, model: targetArea });
+    }
+    function openMapDestinationPicker(origin, kind = 'this') {
+      destinationReturnFocus = document.activeElement;
+      map.closePopup();
+      beginDestinationIntent({ source: 'map', kind, model: planningTargetArea(), origin: { ...origin } });
+    }
+    function clearDestinationActions() {
       document.getElementById('destination-list').replaceChildren();
       document.getElementById('destination-selection').hidden = true;
       document.getElementById('destination-maps').hidden = true;
       document.getElementById('destination-maps').removeAttribute('href');
       document.getElementById('destination-retry').hidden = true;
-      document.getElementById('destination-choose-map').disabled = false;
-      document.getElementById('destination-title').textContent = `Places in target dot [${context.dot.join(', ')}]`;
-      const currentDot = destinationDot(...currentPos);
-      document.getElementById('destination-context').textContent = `Nearest target from your GPS position in dot [${currentDot.join(', ')}] · ${context.model === 'euro-use' ? 'Euro-use area' : 'All land worldwide'}`;
-      destinationTargetAreaSelect.value = targetArea;
-      refreshDestinationModelControl();
+      document.getElementById('destination-choose-map').disabled = true;
+      document.getElementById('destination-ties').replaceChildren();
+    }
+    function beginDestinationIntent(intent, retainedChoice = null) {
+      stopDestinationMapChoice();
+      destinationSession = { intent: { ...intent }, context: { model: intent.model, profile: intent.kind === 'other' ? dotMap : null },
+        request: 0, selected: null, result: null, invalid: true, retainedChoice, pendingModel: false };
+      clearDestinationActions(); refreshDestinationModelControl(); renderDestinationHeadings(); refreshDestinationOutline();
       if (!destinationDialog.open) destinationDialog.showModal();
+      prepareDestinationIntent(destinationSession);
+    }
+    async function prepareDestinationIntent(session) {
+      if (destinationSession !== session) return;
+      let inspected = inspectDestinationIntent(session.intent);
+      if (session.intent.source === 'gps' && !destinationGPSReady()) { session.invalid = false; pauseDestinationPicker(); return; }
+      if (session.intent.kind === 'other' && targetModels[session.intent.model].state !== 'ready' && !session.loadAttempted) {
+        session.loadAttempted = true; session.pendingModel = true;
+        document.getElementById('destination-status').textContent = 'Loading the selected target map before choosing places…';
+        await loadTargetModel(session.intent.model);
+        if (destinationSession !== session || !session.pendingModel) return;
+        session.pendingModel = false;
+        if (session.context.profile !== dotMap) { invalidateDestinationPicker(); return; }
+        if (session.intent.source === 'gps' && !destinationGPSReady()) { session.invalid = false; pauseDestinationPicker(); return; }
+        inspected = inspectDestinationIntent(session.intent);
+      }
+      if (!inspected.context) {
+        session.invalid = true; session.searchStatus = inspected.status;
+        document.getElementById('destination-status').textContent = destinationReason(inspected.status);
+        renderDestinationHeadings(); refreshDestinationModelControl(); refreshDestinationOutline(); return;
+      }
+      session.context = inspected.context; session.searchResult = inspected.result; session.invalid = false;
+      document.getElementById('destination-choose-map').disabled = false;
+      renderDestinationHeadings(); renderDestinationTargets(); refreshDestinationModelControl(); refreshDestinationOutline();
       requestDestinationPlaces();
     }
+    function renderDestinationHeadings() {
+      const session = destinationSession;
+      if (!session) return;
+      const { context, intent } = session, origin = destinationOrigin(intent) || (intent.source === 'gps' && currentPos ? { lat: currentPos[0], lon: currentPos[1] } : null);
+      document.getElementById('destination-title').textContent = context.dot
+        ? 'Places in ' + destinationDotLabel(context.dot, intent.model)
+        : intent.kind === 'this' ? 'Places in this dot' : 'Places in nearest other target';
+      const area = intent.model === 'euro-use' ? 'Euro-use area' : 'All land worldwide';
+      const role = intent.kind === 'this' ? 'This dot' : 'Nearest other eligible unconquered target';
+      const reference = origin ? `${intent.source === 'gps' ? 'your GPS position' : 'map point ' + origin.lat.toFixed(6) + ', ' + origin.lon.toFixed(6)} in ${destinationDotLabel(destinationDot(origin.lat, origin.lon), intent.model)}` : 'your GPS position';
+      let text = `${role} · From ${reference} · ${area}.`;
+      if (intent.kind === 'other') text += ' The starting dot is excluded.';
+      if (context.dot && (intent.source === 'map' || intent.kind === 'other' && lastRadarTarget?.isHere)) {
+        text += intent.kind === 'this' ? ' Blue highlight: inspected dot.' : ' Blue highlight: other target.';
+        if (lastRadarTarget && destinationDotKey(context.dot) === `${lastRadarTarget.i}_${lastRadarTarget.j}`) text += ' This is also the live radar target.';
+      }
+      document.getElementById('destination-context').textContent = text;
+      document.getElementById('destination-distance-label').textContent = intent.source === 'gps' ? 'Straight-line distance from your GPS position' : 'Straight-line distance from the starting map point';
+      document.getElementById('destination-name-message').textContent = dotNameData.failed ? 'Preferred dot names could not be updated; saved or automatic names are used when available.' : '';
+      document.getElementById('destination-name-message').hidden = !dotNameData.failed;
+      if (destinationMapChoice && context.dot) document.getElementById('destination-map-title').textContent = 'Choose a point in ' + destinationDotLabel(context.dot, intent.model);
+    }
+    function renderDestinationTargets() {
+      const session = destinationSession, box = document.getElementById('destination-ties');
+      const focusedKey = box.contains(document.activeElement) ? document.activeElement.dataset.destinationTarget : null;
+      box.replaceChildren();
+      if (!session || session.invalid || session.intent.kind !== 'other' || !session.context.target) return;
+      const chosen = session.context.target, summary = document.createElement('p');
+      summary.className = 'target-note';
+      const bearing = Math.round(((chosen.angle % 360) + 360) % 360) % 360;
+      summary.textContent = `Target dot: ${chosen.distance.toFixed(1)} km · ${bearing}° from the starting point. Place distances below use each arrival point.`;
+      box.append(summary);
+      if (session.searchResult.candidates.length < 2) return;
+      const heading = document.createElement('p'); heading.textContent = `${session.searchResult.candidates.length} equally near target dots — choose one:`; box.append(heading);
+      for (const candidate of session.searchResult.candidates) {
+        const button = document.createElement('button'), dot = [candidate.i, candidate.j], key = destinationDotKey(dot);
+        button.type = 'button'; button.className = 'destination-tie'; button.dataset.destinationTarget = key;
+        button.setAttribute('aria-pressed', String(key === destinationDotKey(session.context.dot)));
+        const angle = Math.round(((candidate.angle % 360) + 360) % 360) % 360;
+        button.textContent = `${destinationDotLabel(dot, session.intent.model)} · ${candidate.distance.toFixed(1)} km · ${angle}°`;
+        button.addEventListener('click', () => {
+          if (destinationSession !== session || !destinationContextMatches() || !inspectDestinationIntent(session.intent).result?.candidates.some(point => `${point.i}_${point.j}` === key)) return;
+          const choice = destinationChoiceToRetain();
+          if (session.intent.source === 'gps' && lastRadarResult?.candidates.some(point => `${point.i}_${point.j}` === key) && !lastRadarTarget?.isHere) {
+            lastRadarTarget = candidate; updateHUD(currentPos[0], currentPos[1]);
+          }
+          beginDestinationIntent({ ...session.intent, targetKey: key }, choice);
+        });
+        box.append(button);
+        if (key === focusedKey) button.focus({ preventScroll: true });
+      }
+    }
     function refreshDestinationModelControl() {
-      destinationTargetAreaSelect.value = targetArea;
-      const model = targetModels[targetArea];
-      const message = model.state === 'ready' ? 'This also changes the radar’s target area and recalculates its target.'
-        : model.state === 'error' ? 'Target map unavailable. Connect and retry.' : 'Loading target map…';
-      document.getElementById('destination-model-message').textContent = message + (!targetChoiceSaved ? ' Choice could not be saved on this device.' : '');
-      document.getElementById('destination-target-retry').hidden = model.state !== 'error';
+      const session = destinationSession, id = session?.intent.model || targetArea, model = targetModels[id];
+      destinationTargetAreaSelect.value = id;
+      const independent = session?.intent.source === 'map';
+      const message = session?.intent.kind === 'other' && model.state !== 'ready'
+        ? model.state === 'error' ? 'Target map unavailable. Connect and retry.' : 'Loading target map…'
+        : independent ? 'Changes this map inspection or plan. The live GPS target area stays unchanged.' : 'This also changes the GPS radar’s target area and recalculates its target.';
+      document.getElementById('destination-model-message').textContent = message + (!independent && !targetChoiceSaved ? ' Choice could not be saved on this device.' : '');
+      document.getElementById('destination-target-retry').hidden = session?.intent.kind !== 'other' || model.state !== 'error';
     }
-    function destinationModelReferenceMatches(session) {
-      return destinationSession === session && session.context.model === targetArea && session.context.profile === dotMap &&
-        gpsEnabled && !document.hidden && geoWatchId !== null && currentGPSState === 'active' && currentPos && lastFixAt && totalNotesCount > 0;
-    }
-    function showDestinationModelResult(retainedChoice = null) {
-      const context = activeDestinationContext();
-      if (context) { beginDestinationSession(context, retainedChoice); return; }
-      document.getElementById('destination-title').textContent = 'Places in nearest target';
-      const currentDot = currentPos ? destinationDot(...currentPos) : null;
-      document.getElementById('destination-context').textContent = currentDot ? `GPS dot [${currentDot.join(', ')}]` : 'GPS position unavailable';
-      document.getElementById('destination-status').textContent = targetModels[targetArea].state !== 'ready'
-        ? 'Places cannot be chosen until the selected target map is available.'
-        : lastRadarTarget?.isHere ? 'You are already in an eligible unconquered dot for this target area. Choose another target area or close this panel.'
-        : lastRadarResult?.status === 'outside' ? 'Outside the selected target area. Choose another target area or close this panel.'
-        : `No onward target is available within ${TARGET_SEARCH_KM} km for this target area. Choose another target area or close this panel.`;
-    }
-    async function changeDestinationTargetArea() {
-      if (!destinationSession) return;
-      const retainedChoice = destinationChoiceToRetain();
-      changeTargetArea(destinationTargetAreaSelect.value);
-      const session = { context: { model: targetArea, profile: dotMap }, request: 0, selected: null, result: null,
-        invalid: true, retainedChoice, pendingModel: targetModels[targetArea].state !== 'ready' };
-      destinationSession = session;
-      refreshDestinationModelControl();
-      if (!destinationModelReferenceMatches(session)) {
-        session.invalid = false; pauseDestinationPicker();
-        if (session.waitingForGPS && targetModels[targetArea].state !== 'ready') loadTargetModel(targetArea);
-        return;
-      }
-      if (session.pendingModel) {
-        document.getElementById('destination-title').textContent = 'Places in nearest target';
-        document.getElementById('destination-context').textContent = `GPS dot [${destinationDot(...currentPos).join(', ')}]`;
-        document.getElementById('destination-status').textContent = 'Loading the selected target map before choosing places…';
-        await loadTargetModel(targetArea);
-        if (!session.pendingModel || !destinationModelReferenceMatches(session)) return;
-        session.pendingModel = false;
-        updateHUD(currentPos[0], currentPos[1]);
-      }
-      showDestinationModelResult(retainedChoice);
-      refreshDestinationModelControl();
+    function changeDestinationTargetArea() {
+      const session = destinationSession;
+      if (!session) return;
+      const retainedChoice = destinationChoiceToRetain(), model = destinationTargetAreaSelect.value;
+      const intent = { ...session.intent, model, targetKey: null };
+      if (intent.source === 'gps') changeTargetArea(model);
+      else planningArea = model;
+      beginDestinationIntent(intent, retainedChoice);
     }
     function closeDestinationPicker() {
-      stopDestinationMapChoice();
-      destinationSession = null;
-      destinationDialog.close();
+      stopDestinationMapChoice(); destinationSession = null; destinationDialog.close(); refreshDestinationOutline();
       const focus = destinationReturnFocus?.isConnected && destinationReturnFocus.getClientRects().length ? destinationReturnFocus : map.getContainer();
       focus.focus({ preventScroll: true });
     }
     function invalidateDestinationPicker() {
-      if (!destinationSession || destinationSession.invalid && !destinationSession.pendingModel && !destinationSession.waitingForGPS) return;
-      destinationSession.pendingModel = false;
-      destinationSession.waitingForGPS = false;
-      destinationSession.resumeChoice = null; destinationSession.retainedChoice = null;
-      destinationSession.invalid = true; destinationSession.selected = null; destinationSession.request++;
+      const session = destinationSession;
+      if (!session) return;
+      session.pendingModel = false; session.waitingForGPS = false; session.foregroundPaused = false;
+      session.resumeChoice = null; session.retainedChoice = null; session.invalid = true; session.selected = null; session.request++;
       const wasChoosing = !!destinationMapChoice;
-      stopDestinationMapChoice();
-      document.getElementById('destination-list').replaceChildren();
-      document.getElementById('destination-selection').hidden = true;
-      document.getElementById('destination-maps').hidden = true;
-      document.getElementById('destination-maps').removeAttribute('href');
-      document.getElementById('destination-retry').hidden = true;
-      document.getElementById('destination-choose-map').disabled = true;
-      document.getElementById('destination-status').textContent = 'GPS, target area or profile changed. Close this list and choose again from the GPS panel.';
-      if (wasChoosing && !document.hidden) destinationDialog.showModal();
+      stopDestinationMapChoice(); clearDestinationActions(); refreshDestinationOutline();
+      document.getElementById('destination-status').textContent = session.intent.source === 'map'
+        ? 'Notes or target data changed. Close this panel and choose again from the map.'
+        : 'GPS, target area or Notes changed. Close this panel and choose again from the GPS panel.';
+      if (wasChoosing && !document.hidden && !destinationDialog.open) destinationDialog.showModal();
     }
     function pauseDestinationPicker() {
       const session = destinationSession;
-      if (!session || session.invalid && !session.pendingModel && !session.waitingForGPS) return;
-      if (!gpsEnabled || session.context.model !== targetArea || session.context.profile !== dotMap || gpsPermissionDenied) {
+      if (!session) return;
+      if (session.intent.source === 'map') {
+        session.foregroundPaused = true; session.returnToList ||= !!destinationMapChoice;
+        stopDestinationMapChoice(); document.getElementById('destination-maps').hidden = true;
+        document.getElementById('destination-maps').removeAttribute('href'); return;
+      }
+      if (session.invalid && !session.pendingModel && !session.waitingForGPS) return;
+      if (!gpsEnabled || session.intent.model !== targetArea || session.intent.kind === 'other' && session.context.profile !== dotMap || gpsPermissionDenied) {
         invalidateDestinationPicker(); return;
       }
       session.resumeChoice = destinationChoiceToRetain(session);
-      session.pendingModel = false; session.waitingForGPS = true; session.invalid = true;
-      session.selected = null; session.request++;
+      session.pendingModel = false; session.waitingForGPS = true; session.invalid = true; session.selected = null; session.request++;
       const wasChoosing = !!destinationMapChoice;
-      stopDestinationMapChoice();
-      document.getElementById('destination-list').replaceChildren();
-      document.getElementById('destination-selection').hidden = true;
-      document.getElementById('destination-maps').hidden = true;
-      document.getElementById('destination-maps').removeAttribute('href');
-      document.getElementById('destination-retry').hidden = true;
-      document.getElementById('destination-choose-map').disabled = true;
-      document.getElementById('destination-status').textContent = 'Waiting for a usable GPS fix. This panel will recover automatically.';
-      if (wasChoosing && !document.hidden) destinationDialog.showModal();
+      stopDestinationMapChoice(); clearDestinationActions(); refreshDestinationOutline();
+      document.getElementById('destination-status').textContent = destinationReason('gps');
+      if (wasChoosing && !document.hidden && !destinationDialog.open) destinationDialog.showModal();
+    }
+    function refreshDestinationPopup() {
+      const popup = destinationPopup;
+      if (!popup) return;
+      const model = planningTargetArea(), result = inspectDestinationIntent({ source: 'map', kind: 'other', model, origin: popup.origin });
+      popup.heading.textContent = destinationDotLabel(popup.dot, model);
+      popup.badge.innerHTML = createBadge(dotMap.get(destinationDotKey(popup.dot)) || 0);
+      popup.button.disabled = !validDestinationDot(popup.dot);
+      popup.other.disabled = !result.context;
+      popup.hint.textContent = result.context ? `Other target from this map point · ${model === 'euro-use' ? 'Euro-use area' : 'All land worldwide'}` : destinationReason(result.status);
     }
     function refreshDestinationUI() {
-      refreshDestinationModelControl();
-      refreshRadarPresentation();
-      const context = activeDestinationContext(), hudButton = document.getElementById('destination-hud-button');
-      hudButton.hidden = !context;
-      hudButton.disabled = !context;
-      const title = context ? `Places in target dot [${context.dot.join(', ')}]` : 'Places in target dot';
-      hudButton.textContent = title;
-      if (destinationPopup) {
-        const current = currentPos && destinationDotKey(destinationDot(...currentPos)) === destinationDotKey(destinationPopup.dot);
-        destinationPopup.action.hidden = !current;
-        destinationPopup.button.disabled = !context;
-        destinationPopup.button.textContent = title;
+      refreshDestinationModelControl(); refreshRadarPresentation(); refreshDestinationPopup();
+      const ready = !!destinationGPSReady(), other = inspectDestinationIntent({ source: 'gps', kind: 'other', model: targetArea });
+      document.getElementById('destination-hud-this').disabled = !ready;
+      document.getElementById('destination-hud-button').hidden = false;
+      document.getElementById('destination-hud-button').disabled = !other.context;
+      document.getElementById('destination-hud-button').textContent = 'Places in nearest other target';
+      document.getElementById('destination-hud-message').textContent = other.context ? 'From your accepted GPS position; the current dot is excluded from the other-target search.' : destinationReason(other.status);
+      const session = destinationSession;
+      if (!session) return;
+      if (session.intent.kind === 'other' && session.context.profile !== dotMap) { invalidateDestinationPicker(); return; }
+      if (session.intent.source === 'gps') {
+        if (session.intent.model !== targetArea || !gpsEnabled || gpsPermissionDenied) { invalidateDestinationPicker(); return; }
+        if (!ready) { pauseDestinationPicker(); return; }
+        if (session.waitingForGPS) { beginDestinationIntent(session.intent, session.resumeChoice); return; }
       }
-      if (destinationSession) {
-        const session = destinationSession;
-        const sameReference = session.context.model === targetArea && session.context.profile === dotMap && gpsEnabled && !gpsPermissionDenied;
-        if (session.waitingForGPS) {
-          if (!sameReference) invalidateDestinationPicker();
-          else if (destinationModelReferenceMatches(session) && targetModels[targetArea].state === 'ready') {
-            const choice = session.resumeChoice;
-            session.waitingForGPS = false;
-            updateHUD(currentPos[0], currentPos[1]);
-            showDestinationModelResult(choice);
-          }
-        } else if (session.pendingModel) {
-          if (!sameReference) invalidateDestinationPicker();
-          else if (!destinationModelReferenceMatches(session)) pauseDestinationPicker();
-        } else if (!session.invalid && !destinationContextMatches()) {
-          if (sameReference && (!context || currentGPSState !== 'active')) pauseDestinationPicker();
-          else invalidateDestinationPicker();
-        }
-        else if (!destinationMapChoice) renderDestinationPlaces();
+      if (document.hidden || session.pendingModel || session.invalid) return;
+      const checked = inspectDestinationIntent(session.intent);
+      if (!checked.context || destinationDotKey(checked.context.dot) !== destinationDotKey(session.context.dot)) {
+        beginDestinationIntent(session.intent, destinationChoiceToRetain()); return;
       }
+      session.context = checked.context; session.searchResult = checked.result;
+      if (session.foregroundPaused) {
+        session.foregroundPaused = false;
+        if (session.returnToList && !destinationDialog.open) destinationDialog.showModal();
+        session.returnToList = false;
+        renderDestinationPlaces(); reviewRetainedDestinationArea();
+      }
+      renderDestinationHeadings(); renderDestinationTargets(); refreshDestinationOutline();
+      if (!destinationMapChoice) renderDestinationPlaces();
     }
     function startDestinationMapChoice() {
       if (!destinationContextMatches()) return;
@@ -2070,7 +2265,7 @@
       document.getElementById('hud-panel').hidden = true;
       document.getElementById('destination-map-panel').hidden = false;
       document.getElementById('destination-crosshair').hidden = false;
-      document.getElementById('destination-map-title').textContent = `Choose a point in dot [${dot.join(', ')}]`;
+      document.getElementById('destination-map-title').textContent = 'Choose a point in ' + destinationDotLabel(dot, destinationSession.context.model);
       map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14, animate: false });
       updateDestinationMapPoint(); map.getContainer().focus({ preventScroll: true });
     }
@@ -2175,7 +2370,8 @@
     document.getElementById('destination-choose-map').addEventListener('click', startDestinationMapChoice);
     document.getElementById('destination-map-cancel').addEventListener('click', () => finishDestinationMapChoice(false));
     document.getElementById('destination-map-use').addEventListener('click', () => finishDestinationMapChoice(true));
-    document.getElementById('destination-hud-button').addEventListener('click', openDestinationPicker);
+    document.getElementById('destination-hud-button').addEventListener('click', () => openDestinationPicker('other'));
+    document.getElementById('destination-hud-this').addEventListener('click', () => openDestinationPicker('this'));
     destinationTargetAreaSelect.addEventListener('change', changeDestinationTargetArea);
     document.getElementById('destination-target-retry').addEventListener('click', changeDestinationTargetArea);
     function cancelDestinationAreaWarning() {
@@ -2213,7 +2409,8 @@
     });
     setInterval(() => { if (!document.hidden && (destinationSession || destinationPopup)) refreshDestinationUI(); }, 1000);
     async function checkDestinationUpdates(force = false) {
-      await refreshDestinationManifest(force);
+      await Promise.allSettled([refreshDestinationManifest(force), refreshDotNameOverrides(force)]);
+      refreshDestinationUI();
       if (destinationContextMatches()) requestDestinationPlaces();
     }
 
