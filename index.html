@@ -1823,14 +1823,17 @@
         return row && (context.model === 'worldwide' || row[7] === true) ? destinationPointFromRow(row) : null;
       }
       const point = { ...choice.point };
-      if (context.model === 'worldwide') { delete point.areaWarning; return point; }
+      if (context.model === 'worldwide') { delete point.areaWarning; delete point.areaReview; return point; }
       // A warning already accepted in this Euro-use session remains accepted on GPS return.
-      if (choice.context.model === context.model && point.areaWarning) return point;
-      return classifyDestinationArea(point, result.boundaries).status === 'inside' ? point : null;
+      if (choice.context.model === context.model && point.areaWarning && !point.areaReview) return point;
+      const area = classifyDestinationArea(point, result.boundaries);
+      delete point.areaWarning; delete point.areaReview;
+      if (area.status === 'unknown') { point.areaReview = area.message; return point; }
+      return area.status === 'inside' ? point : null;
     }
     function renderDestinationSelection() {
       const point = destinationSession?.selected, text = document.getElementById('destination-selection'), link = document.getElementById('destination-maps');
-      text.hidden = !point; link.hidden = !point || !destinationContextMatches(); link.removeAttribute('href');
+      text.hidden = !point; link.hidden = !point || !!point.areaReview || !destinationContextMatches(); link.removeAttribute('href');
       if (!point || !destinationContextMatches()) return;
       text.replaceChildren();
       const label = document.createElement('span'), name = document.createElement('strong'), detail = document.createElement('span');
@@ -1843,6 +1846,11 @@
       }
       text.append(detail);
       if (point.areaWarning) { const warning = document.createElement('span'); warning.textContent = point.areaWarning; text.append(warning); }
+      if (point.areaReview) {
+        const warning = document.createElement('strong');
+        warning.textContent = '⚠ Euro-use check is uncertain. ' + point.areaReview;
+        text.append(warning); return;
+      }
       const url = new URL('https://www.google.com/maps/dir/');
       url.searchParams.set('api', '1');
       url.searchParams.set('destination', `${point.lat.toFixed(6)},${point.lon.toFixed(6)}`);
@@ -1899,6 +1907,7 @@
       document.getElementById('destination-status').textContent = message;
       document.getElementById('destination-retry').hidden = result.status !== 'unavailable' && !result.stale;
       renderDestinationPlaces();
+      reviewRetainedDestinationArea();
     }
     function openDestinationPicker() {
       const context = activeDestinationContext();
@@ -2119,9 +2128,9 @@
       return { status: qualifies ? 'inside' : 'outside', message: `${countries} — ${qualifies ? 'in' : 'outside'} the Euro-use area.` };
     }
     function stopDestinationMapChoice() {
+      destinationAreaDialog.close();
       if (!destinationMapChoice) return;
       const choice = destinationMapChoice; destinationMapChoice = null;
-      destinationAreaDialog.close();
       map.removeLayer(choice.border);
       document.getElementById('control-panel').hidden = false;
       document.getElementById('hud-panel').hidden = false;
@@ -2130,6 +2139,14 @@
       map.setView(choice.view.centre, choice.view.zoom, { animate: false });
       scheduleAppLayout();
     }
+    function reviewRetainedDestinationArea() {
+      const point = destinationSession?.selected;
+      if (!point?.areaReview || !destinationContextMatches() || destinationMapChoice || !destinationDialog.open) return;
+      document.getElementById('destination-area-title').textContent = 'Euro-use check is uncertain';
+      document.getElementById('destination-area-message').textContent =
+        `Your chosen point ${point.lat.toFixed(6)}, ${point.lon.toFixed(6)} was kept. ${point.areaReview} Use this point anyway, or choose another point?`;
+      if (!destinationAreaDialog.open) destinationAreaDialog.showModal();
+    }
     function finishDestinationMapChoice(use, allowAreaWarning = false) {
       if (!destinationMapChoice) return;
       updateDestinationMapPoint();
@@ -2137,7 +2154,7 @@
       if (use && document.getElementById('destination-map-use').disabled) return;
       const area = destinationMapChoice.area;
       if (use && area && area.status !== 'inside' && !allowAreaWarning) {
-        document.getElementById('destination-area-message').textContent = area.status === 'outside'
+        document.getElementById('destination-area-title').textContent = area.status === 'outside' ? 'Outside the Euro-use area' : 'Euro-use check is uncertain';
           ? `${area.message} Your target model is Euro-use. Use this point anyway, or choose another point?`
           : `${area.message} Use this point anyway, or choose another point?`;
         destinationAreaDialog.showModal(); return;
@@ -2148,7 +2165,8 @@
       if (use) {
         document.getElementById('destination-selection').scrollIntoView({ block: 'nearest' });
         document.getElementById('destination-maps').focus();
-      } else document.getElementById('destination-choose-map').focus({ preventScroll: true });
+      } else if (destinationSession.selected?.areaReview) reviewRetainedDestinationArea();
+      else document.getElementById('destination-choose-map').focus({ preventScroll: true });
     }
     document.getElementById('destination-close').addEventListener('click', closeDestinationPicker);
     destinationDialog.addEventListener('cancel', event => { event.preventDefault(); closeDestinationPicker(); });
@@ -2160,14 +2178,30 @@
     destinationTargetAreaSelect.addEventListener('change', changeDestinationTargetArea);
     document.getElementById('destination-target-retry').addEventListener('click', changeDestinationTargetArea);
     function cancelDestinationAreaWarning() {
-      destinationAreaDialog.close(); document.getElementById('destination-map-use').focus({ preventScroll: true });
+      destinationAreaDialog.close();
+      if (destinationMapChoice) { document.getElementById('destination-map-use').focus({ preventScroll: true }); return; }
+      const point = destinationSession?.selected;
+      if (!point?.areaReview || !destinationContextMatches()) return;
+      startDestinationMapChoice();
+      map.setView([point.lat, point.lon], Math.max(map.getZoom(), 14), { animate: false });
+      updateDestinationMapPoint();
     }
     document.getElementById('destination-area-cancel').addEventListener('click', cancelDestinationAreaWarning);
     destinationAreaDialog.addEventListener('cancel', event => { event.preventDefault(); cancelDestinationAreaWarning(); });
     document.getElementById('destination-area-use').addEventListener('click', () => {
-      destinationAreaDialog.close(); finishDestinationMapChoice(true, true);
+      destinationAreaDialog.close();
+      if (destinationMapChoice) { finishDestinationMapChoice(true, true); return; }
+      const point = destinationSession?.selected;
+      if (!destinationContextMatches()) { invalidateDestinationPicker(); return; }
+      if (!point?.areaReview) return;
+      point.areaWarning = point.areaReview + ' Used by your choice.';
+      delete point.areaReview;
+      renderDestinationPlaces();
+      document.getElementById('destination-selection').scrollIntoView({ block: 'nearest' });
+      document.getElementById('destination-maps').focus();
     });
     document.getElementById('destination-maps').addEventListener('click', event => {
+      if (destinationSession?.selected?.areaReview) { event.preventDefault(); reviewRetainedDestinationArea(); return; }
       if (!destinationContextMatches() || !destinationSession.selected || !checkDestinationPoint(destinationSession.selected.lat, destinationSession.selected.lon, destinationSession.context.dot).valid) {
         event.preventDefault(); invalidateDestinationPicker();
       }
