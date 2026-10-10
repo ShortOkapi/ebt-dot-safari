@@ -150,6 +150,10 @@
     }
 
     .target-label-short { display: none; }
+    #hud-panel:not(.collapsed) .target-label-long { display: inline; white-space: normal; overflow-wrap: anywhere; }
+    #hud-panel:not(.collapsed) .target-label-short { display: none; }
+    .target-reading { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; font-weight: 700; white-space: nowrap; }
+    #hud-panel.collapsed .target-reading { display: contents; }
 
     .target-value {
       flex: 0 0 auto;
@@ -383,8 +387,9 @@
     }
     #destination-crosshair svg { display: block; fill: none; stroke: #c2410c; stroke-width: 2; }
 
-    .hud-dot-reference { margin: 0 0 10px; line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-    .hud-dot-reference[hidden] { display: none; }
+    .hud-target-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+    .hud-dot-reference { flex: 1 1 120px; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .hud-target-row[hidden], .hud-dot-reference[hidden] { display: none; }
     .hud-dot-id { white-space: nowrap; }
 
     .hud-details.hud-location-message {
@@ -662,10 +667,12 @@
         <span class="target-visual" aria-hidden="true">
           <span id="target-label-long" class="target-label-long">Nearest Target Dot:</span>
           <span id="target-label-short" class="target-label-short">Target Dot:</span>
-          <span id="target-value" class="target-value">—</span>
-          <span id="target-compass" class="target-compass" hidden>
-            <span class="target-north">N</span>
-            <span id="target-arrow" class="target-arrow">↑</span>
+          <span id="target-reading" class="target-reading" aria-hidden="true">
+            <span id="target-value" class="target-value">—</span>
+            <span id="target-compass" class="target-compass" hidden>
+              <span class="target-north">N</span>
+              <span id="target-arrow" class="target-arrow">↑</span>
+            </span>
           </span>
         </span>
         <span id="target-accessible-text" class="visually-hidden">Nearest target unavailable</span>
@@ -688,7 +695,9 @@
     </div>
 
     <div id="hud-content" class="panel-content">
-      <div id="hud-dot-reference" class="hud-dot-reference" hidden></div>
+      <div id="hud-target-row" class="hud-target-row" hidden>
+        <div id="hud-dot-reference" class="hud-dot-reference" hidden></div>
+      </div>
       <div class="target-area-control">
         <label for="target-area">Target area:</label>
         <select id="target-area" aria-describedby="target-area-message">
@@ -1099,6 +1108,7 @@
       if (collapsed && panel.id === 'control-panel') {
         document.getElementById('csv-saving-help').open = false;
       }
+      if (panel.id === 'hud-panel') syncRadarTargetLayout();
       if (collapsed && hadFocus) toggle.focus();
     }
 
@@ -2768,7 +2778,16 @@
 
     // A visual target outline only; target selection still uses the legacy grid.
     let radarTargetOutline = null;
+    function syncRadarTargetLayout() {
+      const panel = document.getElementById('hud-panel'), reading = document.getElementById('target-reading'), row = document.getElementById('hud-target-row');
+      if (!panel || !reading || !row) return;
+      const expanded = !panel.classList.contains('collapsed');
+      const parent = expanded ? row : panel.querySelector('.target-visual');
+      if (reading.parentElement !== parent) parent.append(reading);
+      row.hidden = !expanded || !(lastRadarTarget && currentPos);
+    }
     function renderRadarDotReference() {
+      syncRadarTargetLayout();
       const reference = document.getElementById('hud-dot-reference');
       if (!reference) return;
       const known = !!(lastRadarTarget && currentPos);

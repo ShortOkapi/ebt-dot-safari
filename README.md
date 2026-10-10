@@ -142,7 +142,7 @@ EBT handles sign-in for its own download page. Dot Safari also makes network req
 
 This v2.2.0 release candidate covers **139 trial dots** with prepared suggestions, including Portugal, selected mixed border and island dots, and Calais. Wider data preparation remains a later stage.
 
-The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, or **Places in this dot** when you are already in an eligible unconquered dot. When the GPS panel is expanded, the dot name and ID appear directly below its distance/status header, before Target area, with only the name bold. Collapsing the panel hides this line. Current-dot details remain available by tapping the map or GPS marker.
+The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, or **Places in this dot** when you are already in an eligible unconquered dot. When expanded, the header shows **Nearest Target Dot:** (or the applicable current/last-known status). The next row, before Target area, contains the dot name and ID followed by the orange distance and compass. Only the name and distance are bold. Long names can wrap; distance and compass stay together. Collapsing the panel hides the name and returns the distance/compass to the existing compact header. Current-dot details remain available by tapping the map or GPS marker.
 
 Every map-dot popup offers two actions:
 
