@@ -142,14 +142,14 @@ EBT handles sign-in for its own download page. Dot Safari also makes network req
 
 This v2.2.0 release candidate covers **139 trial dots** with prepared suggestions, including Portugal, selected mixed border and island dots, and Calais. Wider data preparation remains a later stage.
 
-The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, or **Places in this dot** when you are already in an eligible unconquered dot. The target reference has two rows: its label, then its name and ID, with only the name bold. Current-dot details remain available by tapping the map or GPS marker.
+The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, or **Places in this dot** when you are already in an eligible unconquered dot. When the GPS panel is expanded, the dot name and ID appear directly below its distance/status header, before Target area, with only the name bold. Collapsing the panel hides this line. Current-dot details remain available by tapping the map or GPS marker.
 
 Every map-dot popup offers two actions:
 
 - **Places in this dot** inspects that dot, including a conquered or ineligible dot. Inspection works without Notes or GPS. The selected area filters its places, not whether the dot can be inspected.
 - **Places in nearest target** searches onward from your accepted GPS position when you are in that dot. From another dot, **Places in nearest target from this dot** uses the exact clicked point. When the starting dot itself qualifies as eligible and unconquered, the action says **Places in next target from this dot**. Every onward search excludes the starting dot and needs your Notes; it searches within 150 km.
 
-Opening a dot popup temporarily collapses the controls and GPS panels to make room for both actions. Closing it restores their previous state. A short-screen popup can scroll without putting its buttons beneath those panels.
+Opening a dot popup temporarily collapses the controls and GPS panels to make room for both actions. Closing it restores their previous state. A prominent start box identifies the onward search origin: your GPS position if you are in that dot, or **Chosen start for onward search** with the exact clicked point shown to six decimals. A short-screen popup can scroll without putting its buttons beneath those panels. The aligned controls and GPS panels leave room beside the map layer button on narrow screens.
 
 The GPS places area selector also changes the live radar's saved target area. Temporary GPS loss or leaving the app pauses its navigation; a fresh fix recovers the panel and rechecks its selection. A popup onward search which starts at your GPS position also waits for a fresh fix, but its target-area choice stays independent of the live radar.
 

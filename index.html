@@ -67,7 +67,7 @@
     #control-panel, #hud-panel {
       left: max(12px, env(safe-area-inset-left)); 
       width: 320px; 
-      max-width: calc(100% - 60px - env(safe-area-inset-left) - env(safe-area-inset-right)); 
+      max-width: calc(100% - 72px - env(safe-area-inset-left) - env(safe-area-inset-right)); 
     }
     #control-panel { 
       top: max(12px, env(safe-area-inset-top)); 
@@ -318,10 +318,12 @@
     .destination-heading h2 { flex: 1; margin: 4px 0 12px; font-size: 18px; }
     .destination-title-name { display: block; font-weight: 700; }
     .destination-title-id { display: block; margin-top: 4px; font-size: 14px; font-weight: 400; }
-    #destination-start { margin: 12px 0; padding: 10px; border: 1px solid #0284c7; border-radius: 8px; background: #f0f9ff; overflow-wrap: anywhere; }
+    #destination-start, .dot-inspection-popup .dot-popup-start { margin: 12px 0; padding: 10px; border: 1px solid #0284c7; border-radius: 8px; background: #f0f9ff; overflow-wrap: anywhere; }
     #destination-start[hidden] { display: none; }
-    #destination-start strong, #destination-start span { display: block; }
-    #destination-start span { margin-top: 4px; }
+    #destination-start strong, #destination-start span, .dot-popup-start strong, .dot-popup-start span { display: block; }
+    #destination-start span, .dot-popup-start span { margin-top: 4px; }
+    .dot-popup-start { color: #0f172a; font-size: 13px; line-height: 1.45; }
+    .dot-popup-start span[hidden] { display: none; }
     #destination-close { flex: 0 0 44px; min-height: 44px; }
     #destination-list { display: grid; gap: 6px; margin: 10px 0; }
     .destination-place {
@@ -381,8 +383,8 @@
     }
     #destination-crosshair svg { display: block; fill: none; stroke: #c2410c; stroke-width: 2; }
 
-    .hud-dot-references { display: grid; row-gap: 4px; }
-    .hud-dot-reference { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .hud-dot-reference { margin: 0 0 10px; line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .hud-dot-reference[hidden] { display: none; }
     .hud-dot-id { white-space: nowrap; }
 
     .hud-details.hud-location-message {
@@ -686,6 +688,7 @@
     </div>
 
     <div id="hud-content" class="panel-content">
+      <div id="hud-dot-reference" class="hud-dot-reference" hidden></div>
       <div class="target-area-control">
         <label for="target-area">Target area:</label>
         <select id="target-area" aria-describedby="target-area-message">
@@ -701,7 +704,7 @@
         Allow location access when prompted...
       </div>
       <p id="radar-last-fix-note" class="target-note" role="status" hidden>Based on the last usable GPS position. Waiting for a new fix.</p>
-      <button id="destination-hud-button" class="btn" type="button" aria-describedby="hud-details gps-message" disabled>Places in nearest target</button>
+      <button id="destination-hud-button" class="btn" type="button" aria-describedby="hud-dot-reference hud-details gps-message" disabled>Places in nearest target</button>
 
       <div id="gps-status" class="gps-status">
         <span id="gps-message">Requesting GPS...</span>
@@ -1580,8 +1583,11 @@
       content.append(heading, badge);
       const coordinates = document.createElement('div'); coordinates.style.cssText = 'font-size:11px; color:#666; border-top:1px solid #ddd; padding-top:4px;';
       coordinates.textContent = `Lat: ${south}° to ${north}° · Lon: ${west}° to ${east}°`;
-      const reference = document.createElement('p'); reference.className = 'target-note';
-      reference.textContent = `Chosen start for onward search: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+      const reference = document.createElement('p'); reference.className = 'dot-popup-start';
+      const referenceTitle = document.createElement('strong'), referenceCoordinates = document.createElement('span');
+      referenceTitle.textContent = 'Chosen start for onward search:';
+      referenceCoordinates.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+      reference.append(referenceTitle, ' ', referenceCoordinates);
       content.append(coordinates, reference);
       const action = document.createElement('div'), button = document.createElement('button'), other = document.createElement('button'), hint = document.createElement('p');
       button.type = 'button'; button.className = 'btn destination-popup-button'; button.textContent = 'Places in this dot';
@@ -1593,7 +1599,7 @@
       const popupWidth = Math.max(120, Math.min(320, map.getSize().x - 48));
       const popup = L.popup({ minWidth: popupWidth, maxWidth: popupWidth, className: 'dot-inspection-popup' }).setLatLng(latlng).setContent(content);
       sizeDotPopup(popup);
-      const state = { popup, dot, origin: { lat, lon }, heading, badge, action, button, other, hint, reference };
+      const state = { popup, dot, origin: { lat, lon }, heading, badge, action, button, other, hint, reference, referenceTitle, referenceCoordinates };
       destinationPopup = state;
       popup.on('remove', () => {
         if (destinationPopup === state) destinationPopup = null;
@@ -2275,7 +2281,10 @@
       const startIsTarget = isEligibleDot(popup.dot[0], popup.dot[1], targetModels[model]) && !dotMap.has(destinationDotKey(popup.dot));
       popup.heading.textContent = destinationDotLabel(popup.dot, model);
       popup.badge.innerHTML = createBadge(dotMap.get(destinationDotKey(popup.dot)) || 0);
-      popup.reference.textContent = destinationNeedsGPS(intent) ? 'Onward search starts at your GPS position.' : `Chosen start for onward search: ${popup.origin.lat.toFixed(6)}, ${popup.origin.lon.toFixed(6)}`;
+      const fromGPS = destinationNeedsGPS(intent);
+      popup.referenceTitle.textContent = fromGPS ? 'Onward search starts at your GPS position.' : 'Chosen start for onward search:';
+      popup.referenceCoordinates.hidden = fromGPS;
+      popup.referenceCoordinates.textContent = fromGPS ? '' : `${popup.origin.lat.toFixed(6)}, ${popup.origin.lon.toFixed(6)}`;
       popup.button.disabled = !validDestinationDot(popup.dot);
       popup.other.disabled = !result.context;
       popup.other.textContent = startIsTarget ? 'Places in next target from this dot'
@@ -2760,11 +2769,13 @@
     // A visual target outline only; target selection still uses the legacy grid.
     let radarTargetOutline = null;
     function renderRadarDotReference() {
-      const reference = document.querySelector('#hud-details .hud-dot-reference'), label = document.querySelector('#hud-details .hud-target-label');
-      if (!reference || !label || !lastRadarTarget || !currentPos) return;
-      const live = !!destinationGPSReady(), dot = [lastRadarTarget.i, lastRadarTarget.j], name = destinationDotName(dot, targetArea);
-      label.textContent = !live ? 'Last known Target Dot:' : lastRadarResult?.stabilityHeld ? 'Nearby Target Dot:' : 'Nearest Target Dot:';
+      const reference = document.getElementById('hud-dot-reference');
+      if (!reference) return;
+      const known = !!(lastRadarTarget && currentPos);
+      reference.hidden = !known;
       reference.replaceChildren();
+      if (!known) return;
+      const dot = [lastRadarTarget.i, lastRadarTarget.j], name = destinationDotName(dot, targetArea);
       if (name) { const strong = document.createElement('strong'); strong.textContent = name; reference.append(strong, ' '); }
       const id = document.createElement('span'); id.className = 'hud-dot-id'; id.textContent = `Dot [${dot.join(', ')}]`; reference.append(id);
     }
@@ -2773,9 +2784,9 @@
       const known = !!(lastRadarTarget && currentPos);
       const note = document.getElementById('radar-last-fix-note');
       note.hidden = !known || live;
+      renderRadarDotReference();
       if (known) {
         setTargetSummary(lastRadarTarget, lastRadarResult?.stabilityHeld);
-        renderRadarDotReference();
         requestRadarDotNames([lastRadarTarget.i, lastRadarTarget.j], targetArea);
       }
       if (!known) {
@@ -2889,11 +2900,7 @@
         }
         extra += '</details>';
       }
-      hudDetails.innerHTML = `
-        <div class="hud-dot-references">
-          <span class="hud-target-label"></span>
-          <span class="hud-dot-reference"></span>
-        </div>${extra}`;
+      hudDetails.innerHTML = extra;
       renderRadarDotReference();
       const alternatives = hudDetails.querySelector('.target-alternatives');
       if (alternatives && alternativesOpen) alternatives.open = true;
