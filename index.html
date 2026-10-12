@@ -759,7 +759,7 @@
     <section id="destination-selection" aria-label="Selected destination" aria-live="polite" hidden></section>
     <a id="destination-maps" class="btn" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>Open in Google Maps ↗</a>
     <p class="target-note">Check access and safety. These are suggested points, not verified arrival places.</p>
-    <p class="target-note">Place data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · ODbL.</p>
+    <p class="target-note">Place data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · ODbL. Selected curated places: <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>.</p>
   </dialog>
 
   <dialog id="destination-area-dialog" aria-labelledby="destination-area-title" aria-describedby="destination-area-message">
@@ -824,8 +824,8 @@
           <p style="margin: 0 0 8px;">The GPS panel opens places in its displayed nearest target dot. When you are already in an eligible unconquered dot, its button becomes <b>Places in this dot</b>. Every dot popup offers <b>Places in this dot</b> plus an onward search, which excludes that dot even when it is unconquered. Inspecting a dot needs no Notes or GPS; finding a personal target needs your Notes.</p>
           <p style="margin: 0 0 8px;">Inspection shows distances from you when GPS is usable, and opens a route from your location. Without GPS, it omits distances and can show the chosen place in Google Maps. An onward search from your current dot uses your GPS position. From another dot it uses the exact point you clicked, shown in a <b>Chosen start</b> box; its route sends that start to Maps. Map inspections and plans have an independent target-area selector. The GPS places selector also changes the live radar's area.</p>
           <p style="margin: 0 0 8px;">Titles identify the whole dot, not a selected arrival place. Each distance says <b>from you</b> or <b>from chosen start</b>; distances are straight-line, not road distances. A chosen destination is retained across an area change when it still belongs to the same dot and qualifies. Check the <b>Selected destination</b> box before opening Maps.</p>
-          <p style="margin: 0 0 8px;">The live radar dot has a yellow halo; a map inspection or plan uses blue while its panel is open. Suggestions and automatic dot names currently cover 139 test dots, including Portugal and Calais. English place names appear beneath local names when supplied by OSM. An uncovered dot, failed download and empty list have different messages. Previously loaded place data and names can work offline; Google Maps and background maps may need a connection.</p>
-          <p style="margin: 0;">Euro-use includes the Eurozone, all other countries and territories using the euro (including Kosovo and Montenegro), and Switzerland. Prepared country outlines check manual points in the covered trial dots. Foreign or uncertain points offer a warning and a choice to proceed. Outlines may include territorial waters and do not verify dry land, access or safety. Place data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>, ODbL.</p>
+          <p style="margin: 0 0 8px;">The live radar dot has a yellow halo; a map inspection or plan uses blue while its panel is open. Prepared places cover the Euro-use review dots, including foreign locations in mixed dots. Other worldwide dots still offer Choose on the map. English place names appear beneath local names when supplied by OSM. An uncovered dot, failed download and empty list have different messages. Previously loaded place data and names can work offline; Google Maps and background maps may need a connection.</p>
+          <p style="margin: 0;">Euro-use includes the Eurozone, all other countries and territories using the euro (including Kosovo and Montenegro), and Switzerland. Prepared country outlines check manual points where data is available. Foreign or uncertain points offer a warning and a choice to proceed. Outlines may include territorial waters and do not verify dry land, access or safety. Place data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>, ODbL. Selected curated places: <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>.</p>
         </section>
 
         <section aria-labelledby="about-disclaimer">
@@ -1798,6 +1798,20 @@
       })().finally(() => { destinationData.inFlight = null; });
       return destinationData.inFlight;
     }
+    function destinationBlockCacheManifest(manifest, blockKey) {
+      const block = manifest.blocks[blockKey];
+      const snapshot = {
+        format: manifest.format, formatVersion: manifest.formatVersion, variant: manifest.variant,
+        version: manifest.version, policyId: manifest.policyId, grid: manifest.grid,
+        coverage: block.cells.map(cell => cell.split('_').map(Number)),
+        blocks: { [blockKey]: block }
+      };
+      if (manifest.formatVersion === 2) {
+        snapshot.boundaryCheck = { uncertaintyMetres: manifest.boundaryCheck.uncertaintyMetres };
+        snapshot.policy = { evaluatedCountries: manifest.policy.evaluatedCountries };
+      }
+      return snapshot;
+    }
     async function loadDestinationCell(dot, model, force = false) {
       const manifest = await refreshDestinationManifest(force), blockKey = `${Math.floor(dot[0] / 8)}_${Math.floor(dot[1] / 8)}`;
       const unavailable = { status: 'unavailable', points: [], boundaries: null, stale: false };
@@ -1828,8 +1842,8 @@
           return resultFor(data, destinationData.failed, previous.saveFailed);
         }
         const body = await fetchDestinationText(new URL(descriptor.file, DESTINATION_ROOT));
-        const data = await validateDestinationBlock(body, manifest, blockKey), entry = { manifest, body, data };
-        try { await (await caches.open(DESTINATION_DATA_CACHE)).put(destinationCacheKey('block/' + blockKey), new Response(JSON.stringify({ manifest, body }))); }
+        const data = await validateDestinationBlock(body, manifest, blockKey), entry = { manifest: destinationBlockCacheManifest(manifest, blockKey), body, data };
+        try { await (await caches.open(DESTINATION_DATA_CACHE)).put(destinationCacheKey('block/' + blockKey), new Response(JSON.stringify({ manifest: entry.manifest, body }))); }
         catch { entry.saveFailed = true; }
         destinationData.blocks.delete(blockKey);
         destinationData.blocks.set(blockKey, entry);
@@ -2090,7 +2104,7 @@
         session.selected = retainedDestination(choice, session.context, result);
         session.retainedChoice = null;
       }
-      let message = result.status === 'not-covered' ? 'This dot is not covered by the current trial place dataset. This does not mean it has no places. You can choose a point on the map.'
+      let message = result.status === 'not-covered' ? 'This dot has no prepared place data yet. This does not mean it has no places. You can choose a point on the map.'
         : result.status === 'unavailable' ? 'Place data could not be downloaded or read from saved data. Connect and retry, or choose a point on the map.'
         : result.status === 'empty' ? 'No listed destinations in this dot for this target area.'
         : result.status === 'partial' ? 'Some place data is unclassified. The suggestions may be incomplete.' : 'Choose a suggested place or a point on the map.';
@@ -2139,6 +2153,7 @@
         request: 0, selected: null, result: null, invalid: true, retainedChoice, pendingModel: false };
       clearDestinationActions(); refreshDestinationModelControl(); renderDestinationHeadings(); refreshDestinationOutline();
       if (!destinationDialog.open) destinationDialog.showModal();
+      destinationDialog.scrollTop = 0;
       prepareDestinationIntent(destinationSession);
     }
     async function prepareDestinationIntent(session) {
