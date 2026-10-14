@@ -1,10 +1,12 @@
 # EBT Dot Safari 🌍🧭
 
-A live GPS assistant for EuroBillTracker dot hunters, showing your conquered dots and guiding you towards eligible unconquered dots.
+**Your personal dot hunting assistant.**
+
+A mobile map for EuroBillTracker dot hunters: see your conquered dots, find the nearest eligible unconquered dot, inspect places and plan onward from a point you choose.
 
 [Open EBT Dot Safari](https://shortokapi.github.io/ebt-dot-safari/) · [Releases and changes](https://github.com/ShortOkapi/ebt-dot-safari/releases)
 
-**Guide updated:** 5 October 2026. Target area features are available from v2.1.0. Phone and browser menu wording may vary.
+**Guide updated:** 14 October 2026. Target area features are available from v2.1.0; places and planning are being tested in v2.2.0 candidates. Phone and browser menu wording may vary.
 
 ## How to use
 
@@ -134,15 +136,33 @@ If your personal map is not present when you first open the installed app, load 
 
 ## Privacy
 
-Your CSV is processed locally and is not uploaded by Dot Safari. Dot Safari has no user accounts or analytics. The saved personal map contains derived dot counts and a user reference, rather than a saved copy of all CSV contents.
+### Notes and saved data
 
-EBT handles sign-in for its own download page. Dot Safari also makes network requests for background maps, application resources and target datasets. Browser location services and external map providers operate under their own privacy policies.
+Your Notes CSV is read and processed on your device. Dot Safari does not upload it, your note serial numbers or your comments. It has no user accounts, analytics or advertising trackers.
+
+To restore your map later, Dot Safari saves a compact profile in this browser: your user reference and the count of notes in each conquered dot. It also remembers settings such as GPS on/off and target area, and caches app files and downloaded public map/place data for offline use. It does not retain the complete CSV or a history of your GPS fixes.
+
+**Clear conquered dots** removes the saved personal profile after confirmation. The CSV on your device remains yours. Other settings and public caches can remain until you clear this site's browser data. Private browsing, browser storage limits or clearing data can remove saved information; keep your original Notes CSV.
+
+### Location and external services
+
+GPS positions are used on the device for the live marker, distances and radar. Browser/operating-system location services have their own privacy policies.
+
+Online use makes normal requests to GitHub/GitHub Pages for app and public data files, unpkg for Leaflet, and the selected background-map provider (OpenStreetMap or Esri). These services receive ordinary connection information such as your IP address and requested resources. Tile requests and grid-block filenames can reveal the area being viewed or inspected. Public place-data requests do not contain your Notes or exact GPS coordinates.
+
+Opening Google Maps sends the selected destination coordinates. An onward plan from another dot also sends its chosen start; otherwise Google Maps may use your location under its own permissions and policies. Dot Safari adds no analytics parameters to those links. EBT handles sign-in and Notes downloads on its own site; Dot Safari does not receive or store your EBT password.
+
+### Feedback
+
+The Feedback panel prepares a message containing the selected dot's reference/name, target area and app version. It does not add your Notes, note counts, live GPS position or planning origin. You can edit and review the message before copying it. Its draft is not saved to browser storage and is cleared when the panel closes.
+
+Copying writes the reviewed text to your device's clipboard. Opening **Message Miguel** takes you to the EBT forum; sign in and paste/send the message there. Dot Safari does not send it automatically. Forum messages are handled by the forum under its own policies.
 
 ## Places, dot names and planning
 
 This v2.2.0 release candidate has prepared data for **4,222 dots**: all 4,167 eligible Euro-use dots in Target Map revision 57, 54 non-Antarctic Unconquerable naming dots, and the curated Three Forks Beach Tongue dot. Within those dots, worldwide lists include qualifying and foreign places. Other worldwide dots still offer **Choose on the map**; their lists have not yet been prepared. Empty and incomplete lists remain usable. Completing a manual naming survey is not required before using or releasing the feature.
 
-The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, or **Places in this dot** when you are already in an eligible unconquered dot. When expanded, the header shows **Nearest Target Dot:** (or the applicable current/last-known status). The next row, before Target area, contains the dot name and ID followed by the orange distance and compass. Only the name and distance are bold. Long names can wrap; distance and compass stay together. Collapsing the panel hides the name and returns the distance/compass to the existing compact header. Current-dot details remain available by tapping the map or GPS marker.
+The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, or **Places in this dot** when you are already in an eligible unconquered dot. When expanded, the header shows **Nearest Target Dot:** (or the applicable current/last-known status). The next row, before Target area, contains the dot name and ID followed by the orange distance and compass. Only the name and distance are bold. In the expanded panel, the compass is also a keyboard-accessible shortcut to the same places action. In the collapsed panel it remains a display only. Long names can wrap; distance and compass stay together. Collapsing the panel hides the name and returns the distance/compass to the existing compact header. Current-dot details remain available by tapping the map or GPS marker.
 
 Every map-dot popup offers two actions:
 
@@ -157,9 +177,9 @@ The GPS places area selector also changes the live radar's saved target area. Te
 
 An onward plan from another dot shows a prominent **Chosen start** box with the exact clicked point's dot and six-decimal coordinates. List and selected-place distances explicitly say **from chosen start**. Its Maps route sends that fixed origin, even if you move or turn GPS off. Map inspections and onward plans have an area selector independent of the live GPS radar; that planning choice lasts for this visit. If an ID-only entry point is added later, its exact grid centre will be the fallback origin. Returning to a map plan restores its choices when they still apply. Changing Notes invalidates a personal target plan; simple dot inspection remains usable.
 
-The places heading identifies the whole dot: **Places in Torres Vedras Dot** on the top row, with `[460, 403]` on a separate, normal-weight row. Dot names are convenient display labels, not official EBT identifiers or automatic arrival selections. A mixed dot uses a Euro-use and a foreign representative in worldwide mode, for example **Lemos / Pustec Dot [466, 475]**; Euro-use mode shows **Lemos Dot [466, 475]**. Default representatives are selected from the full classified pools before taking each model's top five places. Names use English when supplied by OSM, otherwise the local name. Unnamed or unavailable data falls back to **Dot [row, column]**. The IDs, grid bounds and eligibility remain unchanged.
+The places heading identifies the whole dot: **Places in Torres Vedras Dot** on the top row, with `[460, 403]` on a separate, normal-weight row. Dot names are convenient display labels, not official EBT identifiers or automatic arrival selections. When the first worldwide representative is foreign, a mixed dot can show the Euro-use and foreign representatives, for example **Lemos / Pustec Dot [466, 475]**; Euro-use mode shows **Lemos Dot [466, 475]**. If its first worldwide representative is Euro-use, the worldwide name has one place. Preferred names can override these generated labels. Default representatives are selected from the full classified pools before taking each model's top five places. Names use English when supplied by OSM, otherwise the local name. Unnamed or unavailable data falls back to **Dot [row, column]**. The IDs, grid bounds and eligibility remain unchanged.
 
-Choose a suggested place or a point on the map, then check the prominent **Selected destination** box before opening Maps. The list shows an English second line beneath a local name when OSM supplies one. Each available distance explicitly says **from you** or **from chosen start**. Target-dot distance is measured to the cell; place distance is measured to the arrival point. Neither is a road distance. Fixed onward plans send both origin and destination at six decimals. GPS routes send the selected destination and let Maps use your location. Inspection without GPS sends a coordinate search. Dot labels are never used as Maps destinations. Equally near targets can be selected in the places panel. A map choice does not change the live radar's chosen dot.
+Choose a suggested place or a point on the map, then check the prominent **Selected destination** box before opening Maps. The list shows an English second line beneath a local name when OSM supplies one. Each available distance explicitly says **from you** or **from chosen start**. Target-dot distance is measured to the cell; place distance is measured to the arrival point. Neither is a road distance. Fixed onward plans send both origin and destination at six decimals. GPS routes send the selected destination and let Maps use your location. Inspection without GPS sends a coordinate search. Dot labels are never used as Maps destinations. Google Maps can display its own address or nearby-place label for the coordinate you sent; that wording may differ from the selected place's name in Dot Safari. A coordinate handoff does not supply a custom Google Maps label. Equally near targets can be selected in the places panel. A map choice does not change the live radar's chosen dot.
 
 A chosen destination survives an area change when it remains in the same inspected/target dot and qualifies for that model, including a listed point outside the new top five. An uncertain manual point chosen worldwide stays selected on switching to Euro-use, with its uncertainty warning and kept coordinates. Use it anyway or choose another point, beginning at those coordinates; Maps is withheld until review. A point known to be outside Euro-use is cleared on that switch. It can still be chosen deliberately in Euro-use after reviewing the warning.
 
@@ -169,7 +189,7 @@ A chosen destination survives an area change when it remains in the same inspect
 
 Edit the root **dot-name-overrides.json** to prefer a name without editing places or coordinates. Keep names without the word “Dot” or an ID: the app adds those. An entry such as `{"dot":[460,403],"name":"Torres Vedras"}` applies to both models. Optional `nameWorldwide` and `nameEuroUse` take precedence over `name` for their respective model. An optional `reason` is for maintainers. Use each dot only once in `include`.
 
-The `exclude` array contains dot IDs, such as `[460,403]`, to force a numeric-only label. Exclusion takes precedence over any preferred or automatic name. Keep `include` and `exclude` arrays even when empty. This file changes display names only, not settlement records, arrival points, conquest or eligibility.  file includes Miguel's reviewed preferences, including Praia da Adraga and Torres Vedras. Unreviewed dots retain their automatic name or numeric label.
+The `exclude` array contains dot IDs, such as `[460,403]`, to force a numeric-only label. Exclusion takes precedence over any preferred or automatic name. Keep `include` and `exclude` arrays even when empty. This file changes display names only, not settlement records, arrival points, conquest or eligibility. The file includes Miguel's reviewed preferences, including Praia da Adraga and Torres Vedras. Unreviewed dots retain their automatic name or numeric label.
 
 Names are checked on opening, hourly while visible, on return when due and after reconnection. Invalid or failed updates retain the last valid preferences and explain the failed update in an open places panel. Automatic names travel with requested place blocks. The live radar requests its own dot name without requiring you to open its places panel. Requests are bounded and retried hourly when due; no full-world name index is loaded.
 
@@ -191,7 +211,7 @@ Open a covered dot while online to save its block and automatic names. Those vis
 
 Public data is requested by grid block without transmitting Notes or GPS coordinates. The manifest and preferred names are checked on opening, hourly while visible, on return when due and after reconnection. Blocks are requested for the live radar target name and when a dot popup or places list opens. Validated data is stored separately from app-version caches. Failed updates retain the last valid block; storage failures are reported. RC1/RC2 blocks remain readable offline, with numeric dot labels when name metadata is absent. RC1 also lacks English names and country outlines.
 
-Prepared settlement and country-boundary data is © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), under the [Open Database License](https://opendatacommons.org/licenses/odbl/). Selected curated locations use [GeoNames](https://www.geonames.org/), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); some coordinates were corrected by Miguel. Snapshot and policy metadata are in the manifest; application code remains MIT. Rare destination exceptions are maintained in the root **destination-overrides.json** of **ebt-world-land-map**, using the familiar include/exclude format. OSM entries inherit source fields unless explicitly overridden; manual entries use a Plus Code ID and six-decimal coordinates. Data preparation resolves these entries into the published blocks outside the app; an exception-file edit requires a prepared-data update. Dot-name overrides only change labels. Do not maintain either kind of exception by editing generated blocks.
+Prepared settlement and country-boundary data is © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), under the [Open Database License](https://opendatacommons.org/licenses/odbl/). Additional place data comes from [GeoNames](https://www.geonames.org/), under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); some coordinates were corrected by Miguel. Snapshot and policy metadata are in the manifest; application code remains MIT. Rare destination exceptions are maintained in the root **destination-overrides.json** of **ebt-world-land-map**, using the familiar include/exclude format. OSM entries inherit source fields unless explicitly overridden; manual entries use a Plus Code ID and six-decimal coordinates. Data preparation resolves these entries into the published blocks outside the app; an exception-file edit requires a prepared-data update. Dot-name overrides only change labels. Do not maintain either kind of exception by editing generated blocks.
 
 ## Before you set off
 
@@ -199,13 +219,15 @@ Dot Safari cannot guarantee euro banknotes in any eligible dot. We do our best t
 
 No dot is worth entering a dangerous or forbidden area. And if your next conquest appears to require a submarine, please question the map before buying one.
 
-## Help improve the Euro-use target map
+## Feedback and map corrections
 
-Know a dot whose classification needs checking? The Euro-use map is public, and everyone is welcome to contribute — no coding needed.
+Use the small **Feedback** action in any dot popup or places panel to report an unsuitable dot name, a missing/incorrect place, conquerability or Euro-use classification. The report identifies the dot you clicked or the actual target dot shown by the places panel. It does not silently report the starting dot of an onward plan.
 
-Open [EBT Target Map](https://shortokapi.github.io/ebt-target-map/), select a dot, choose its classification and explain your reasoning. Your edits stay in your own working copy and do not change the published map. Use **Review Changes** to save or share a **Change Report**, then send it to [**Miguel / lmviterbo**](https://forum.eurobilltracker.com/memberlist.php?mode=viewprofile&u=448). Proposed corrections are reviewed before approved changes are applied and published.
+Write a short correction and, if possible, a supporting link. Copy the message, then open [a private message to **Miguel / lmviterbo** on the EBT forum](https://forum.eurobilltracker.com/ucp.php?i=pm&mode=compose&u=448), sign in and paste/send it. A forum account is required. There is no separate public email form or automatic submission from Dot Safari.
 
-Prefer to send a message instead? Include the dot’s **[i, j]** numbers, its place or country, and why you think it should — or should not — be reclassified. Local knowledge and supporting links are welcome. Information about a single dot can help other hunters.
+For Euro-use conquerability changes, open [EBT Target Map](https://shortokapi.github.io/ebt-target-map/), select a dot, choose its classification and explain your reasoning. Your edits stay in your working copy. Use **Review Changes** to save/share a **Change Report** and send it to Miguel. Proposed corrections are reviewed before accepted changes are published. Target Map does not yet edit Dot Safari names or place lists; report those through Feedback.
+
+One dot is enough to help. Include its **[i, j]** reference, the proposed change and your reason. Local knowledge is welcome.
 
 ## Grid references
 
@@ -217,10 +239,15 @@ Tap a dot on the map to inspect its reference, note count and coordinate bounds.
 
 - **Direction:** Miguel Viterbo ([lmviterbo](https://eurobilltracker.com/profile/?user=10680) = [ShortOkapi](https://github.com/shortokapi)).
 - **Code generation:** AI relay — Gemini → Claude → ChatGPT.
-- **Audit and testing:** Peter Zagler ([elpeza](https://eurobilltracker.com/profile/?user=77800) = [PZ42](https://github.com/PZ42)).
+- **Audit and testing of earlier versions:** Peter Zagler ([elpeza](https://eurobilltracker.com/profile/?user=77800) = [PZ42](https://github.com/PZ42)), with analysis assistance from Claude.
+- **iPhone feedback:** Manfred Wolfensberger (Laurentina, Zürich 🇨🇭), who played a key role in improving iPhone use.
+- **Further feedback:** several EBT dot hunters have helped improve the tool.
 - **Map library:** [Leaflet](https://leafletjs.com/).
 - **Background maps:** OpenStreetMap contributors and Esri, with attribution displayed on the map.
 - **Curated Euro-use data and editor:** [EBT Target Map](https://github.com/ShortOkapi/ebt-target-map).
 - **Worldwide land mask and manual corrections:** [EBT World Land Map](https://github.com/ShortOkapi/ebt-world-land-map).
+- **Additional place data:** [GeoNames](https://www.geonames.org/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). These destinations were selected and reviewed by Miguel.
+
+Manual reviews have also used Google Maps for reference and Apple Maps satellite imagery to check geography. These review references are separate from the prepared OSM/GeoNames data feeds and the background maps displayed by Dot Safari. Source notes are retained with curated exceptions; external content retains its applicable terms.
 
 The application code is available under the [MIT licence](LICENSE). The worldwide land mask derives from [OpenStreetMap land polygons](https://osmdata.openstreetmap.de/data/land-polygons.html), © OpenStreetMap contributors, under [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). External datasets and map imagery retain their own applicable licences and terms; the application’s MIT licence does not replace them. See the source repositories for dataset provenance.
