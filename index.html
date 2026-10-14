@@ -408,7 +408,7 @@
     }
     #destination-crosshair svg { display: block; fill: none; stroke: #c2410c; stroke-width: 2; }
 
-    .hud-target-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+    .hud-target-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
     .hud-dot-reference { flex: 1 1 120px; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
     .hud-target-row[hidden], .hud-dot-reference[hidden] { display: none; }
     .hud-dot-id { white-space: nowrap; }
@@ -457,8 +457,10 @@
     .btn-group { display: flex; justify-content: flex-end; gap: 8px; }
     .btn {
       flex: 1; text-align: center; background: #c2410c; color: #fff;
-      font-weight: 600; font-size: 13px; padding: 9px; border-radius: 8px;
-      cursor: pointer; border: none; text-decoration: none; display: inline-block;
+      font-family: inherit; font-weight: 600; font-size: 13px; line-height: 1.4;
+      padding: 9px; border-radius: 8px; box-sizing: border-box;
+      cursor: pointer; border: none; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center;
       transition: background 0.2s;
     }
     .btn[hidden] { display: none; }
@@ -820,7 +822,7 @@
     <p>Suggest a dot name, a listed place, or a correction to conquerability or Euro-use. A short explanation and a source link are useful.</p>
     <label for="feedback-text">Your message</label>
     <textarea id="feedback-text" spellcheck="true" maxlength="12000"></textarea>
-    <p>Copy your message, then open a private message to Miguel on the EBT forum and paste it there. Forum sign-in is required.</p>
+    <p>Use the two buttons below in order: <b>Copy message</b>, then <b>Message Miguel</b>. In the EBT forum, paste the copied text into your private message and send it. Forum sign-in is required.</p>
     <div class="btn-group">
       <button id="feedback-copy" class="btn" type="button">Copy message</button>
       <a id="feedback-forum" class="btn" href="https://forum.eurobilltracker.com/ucp.php?i=pm&amp;mode=compose&amp;u=448" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Message Miguel ↗</a>
@@ -834,7 +836,7 @@
   <div id="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
     <div class="about-dialog">
       <button id="about-close" type="button" aria-label="Close" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b;">✖</button>
-      <h2 id="about-title" style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px;">EBT Dot Safari <span id="app-version" style="font-size: 12px; font-weight: 500; color: #64748b;">v2.2.0-rc11</span></h2>
+      <h2 id="about-title" style="margin: 0 0 4px 0; color: #0f172a; font-size: 18px;">EBT Dot Safari <span id="app-version" style="font-size: 12px; font-weight: 500; color: #64748b;">v2.2.0-rc12</span></h2>
       <p style="margin: 0 0 16px 0; font-size: 13px; color: #64748b; font-style: italic;">Your personal dot hunting assistant.</p>
       <div class="about-share-section">
         <button id="share-app" class="btn" type="button">Share this app</button>
@@ -868,6 +870,7 @@
         <section aria-labelledby="about-privacy">
           <h3 id="about-privacy" style="margin: 0 0 8px; font-size: 14px; color: #0f172a;">Your data</h3>
           <p style="margin: 0 0 8px;">Your Notes CSV is processed on your device and is not uploaded by Dot Safari. A compact dot profile and settings are saved locally. Online maps use external services.</p>
+          <p style="margin: 0 0 8px;">Dot Safari does not send your Notes data to Miguel, GitHub or any map provider. Importing your file does not share its contents with them.</p>
           <p style="margin: 0;"><a href="https://github.com/ShortOkapi/ebt-dot-safari#privacy" data-readme-section="privacy" target="_blank" rel="noopener noreferrer">Privacy details ↗</a></p>
         </section>
 
@@ -1950,7 +1953,7 @@
     });
     document.getElementById('destination-feedback').addEventListener('click', event => {
       const context = destinationSession?.context;
-      if (context?.dot) openDotFeedback(context.dot, context.model, event.currentTarget);
+      if (context?.dot && !event.currentTarget.hidden) openDotFeedback(context.dot, context.model, event.currentTarget);
     });
 
     // Display names never identify a Maps arrival point or change grid eligibility.
@@ -2280,7 +2283,8 @@
       const session = destinationSession;
       if (!session) return;
       const { context, intent } = session, origin = destinationOrigin(intent);
-      document.getElementById('destination-feedback').hidden = !context.dot;
+      const inspectingThisDot = intent.kind === 'this' || (intent.kind === 'radar' && context.target?.isHere);
+      document.getElementById('destination-feedback').hidden = !context.dot || !inspectingThisDot;
       const title = document.getElementById('destination-title');
       if (context.dot) renderDestinationTitle(title, 'Places in ', context.dot, intent.model);
       else title.textContent = intent.kind === 'this' ? 'Places in this dot' : intent.kind === 'radar' ? 'Places in nearest target' : 'Places in nearest target from this dot';
@@ -3427,6 +3431,17 @@
     resumeApp();
 
     // PWA Service Worker Registration
+function updateVersionTooltips(workerVersion = null) {
+  const element = document.getElementById('app-version'), version = element.textContent.trim();
+  let detail = 'About / Credits — ' + version;
+  if (typeof workerVersion === 'string') {
+    element.title = 'This page: ' + version + '. Offline app cache: v' + workerVersion;
+    if ('v' + workerVersion !== version) detail += ' (offline cache: v' + workerVersion + ')';
+  }
+  document.getElementById('about-btn').title = detail;
+}
+updateVersionTooltips();
+
 function showAppVersion(worker) {
   // The visible number identifies this HTML copy, independently of a worker reply.
   if (!worker) return;
@@ -3434,8 +3449,7 @@ function showAppVersion(worker) {
   const timeoutId = setTimeout(() => channel.port1.close(), 3000);
   channel.port1.onmessage = event => {
     clearTimeout(timeoutId);
-    const element = document.getElementById('app-version');
-    if (typeof event.data === 'string') element.title = 'This page: ' + element.textContent + '. Offline app cache: v' + event.data;
+    updateVersionTooltips(event.data);
     channel.port1.close();
   };
   worker.postMessage('GET_APP_VERSION', [channel.port2]);
