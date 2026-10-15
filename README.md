@@ -6,7 +6,7 @@ A mobile map for EuroBillTracker dot hunters: see your conquered dots, find the 
 
 [Open EBT Dot Safari](https://shortokapi.github.io/ebt-dot-safari/) · [Releases and changes](https://github.com/ShortOkapi/ebt-dot-safari/releases)
 
-**Guide updated:** 14 October 2026. Target area features are available from v2.1.0; places and planning are being tested in v2.2.0 candidates. Phone and browser menu wording may vary.
+**Guide updated:** 15 October 2026. Target area features are available from v2.1.0; places and planning are available from v2.2.0. Phone and browser menu wording may vary.
 
 ## How to use
 
@@ -162,7 +162,7 @@ Use **Copy message**, then **Message Miguel**. Copying writes the reviewed text 
 
 ## Places, dot names and planning
 
-This v2.2.0 release candidate has prepared data for **4,222 dots**: all 4,167 eligible Euro-use dots in Target Map revision 57, 54 non-Antarctic Unconquerable naming dots, and the curated Three Forks Beach Tongue dot. Within those dots, worldwide lists include qualifying and foreign places. Other worldwide dots still offer **Choose on the map**; their lists have not yet been prepared. Empty and incomplete lists remain usable. Completing a manual naming survey is not required before using or releasing the feature.
+Prepared place and dot-name data currently focuses on the Euro-use area. In worldwide mode, covered mixed dots also include places on foreign land. Names and place lists are reviewed and updated over time, independently of app releases. Where a list is empty, incomplete or unavailable, **Choose on the map** lets you select a destination yourself.
 
 The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, or **Places in this dot** when you are already in an eligible unconquered dot. When expanded, the header shows **Nearest Target Dot:** (or the applicable current/last-known status). The next row, before Target area, contains the dot name and ID followed by the orange distance and compass. Only the name and distance are bold. In the expanded panel, the compass is also a keyboard-accessible shortcut to the same places action. In the collapsed panel it remains a display only. Long names can wrap; distance and compass stay together. Collapsing the panel hides the name and returns the distance/compass to the existing compact header. Current-dot details remain available by tapping the map or GPS marker.
 
