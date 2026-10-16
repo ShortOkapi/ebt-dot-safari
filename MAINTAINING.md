@@ -1,6 +1,6 @@
 # EBT Dot Safari — maintainer guide
 
-Updated: **15 October 2026**. This file is for project maintenance. Visitors can use the [user guide](README.md).
+Updated: **16 October 2026**. This file is for project maintenance. Visitors can use the [user guide](README.md).
 
 ## Dot names and destinations are separate
 
@@ -84,7 +84,7 @@ For the current manual workflow, update **both** literals together:
 
 The HTML version identifies the loaded page. The service-worker version identifies its offline app cache. The About button's hover tooltip includes the page version and identifies a differing worker version when reported. Version text in the feedback report is taken from the HTML; there is no third literal to maintain.
 
-Use a release-candidate version while testing. The current test candidate is **2.2.1-rc1**. Before merging the accepted stable release, set both to **2.2.1** / **v2.2.1** respectively. Candidate help links use README on **release-2.2.1**; stable help links use main. The dataset folder name is independent of the app version and does not need renaming for every candidate.
+Use a release-candidate version while testing. The current test candidate is **2.2.1-rc2**. Before merging the accepted stable release, set both to **2.2.1** / **v2.2.1** respectively. Candidate help links use README on **release-2.2.1**; stable help links use main. The dataset folder name is independent of the app version and does not need renaming for every candidate.
 
 Test the supplied complete candidate, then download/test the actual release branch ZIP. Confirm the server starts in the folder beside index.html. Keep physical Android/iPhone checks for GPS, installed-PWA use, clipboard, external-app return and narrow screens. Version 2.2.0 retains the existing icon. A redesigned icon is deferred to a later release.
 
