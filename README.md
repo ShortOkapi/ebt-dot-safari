@@ -6,7 +6,7 @@ A mobile map for EuroBillTracker dot hunters: see your conquered dots, find the 
 
 [Open EBT Dot Safari](https://shortokapi.github.io/ebt-dot-safari/) · [Releases and changes](https://github.com/ShortOkapi/ebt-dot-safari/releases)
 
-**Guide updated:** 15 October 2026. Target area features are available from v2.1.0; places and planning are available from v2.2.0. Phone and browser menu wording may vary.
+**Guide updated:** 15 October 2026. This guide includes the v2.2.1-rc1 test candidate. Target areas are available from v2.1.0; places and planning from v2.2.0. Phone and browser menu wording may vary.
 
 ## How to use
 
@@ -78,11 +78,21 @@ The radar searches up to **150 km** using the existing distance calculation. Con
 
 An unavailable result clears the previous target rather than keeping its guidance on screen. With no conquered-dot map loaded, load your Notes file before using the radar to find personal targets.
 
+### Choosing a nearby target dot
+
+Expand the GPS panel and tap **Nearby target dots**. Choose a card to make that dot the active radar target and open its places. The list normally offers the five geographically closest eligible unconquered dots within **150 km**, including extra ties and the current active target when necessary. Dot names load when prepared data is available; numeric IDs remain usable when it is not.
+
+Cards show **grid steps** and a direction arrow. One step moves to a neighbouring cell, including diagonals; steps ignore sea, roads, access and travel time. Ordering still uses the existing unrounded geographical distance to each cell, so it need not follow the displayed step count. Place lists continue to show kilometres to arrival points.
+
+The main radar keeps one target and shows its own kilometre distance and compass. An explicit choice is labelled **Selected Target Dot**. It survives ordinary GPS updates, leaving and returning to the app, and target-area changes while still eligible and in range. On arrival it becomes **Places in this dot**; it remains unconquered until your Notes include it. **Use automatic nearest target** restores automatic guidance. Reopening or reloading the page, replacing/clearing Notes, or a selected dot becoming conquered, ineligible or more than 150 km away returns to automatic selection. The manual choice lasts only for this visit and is not written to browser storage.
+
+While GPS is unavailable, selection waits for a fresh usable fix. Existing last-known guidance is labelled as such. A failed target-map update keeps the last valid map; it does not itself discard a valid choice. The selector is for the live GPS radar. Onward searches from map popups keep their chosen starting point and nearest-other-target behaviour.
+
 ### Equally near targets and small GPS movements
 
-When several eligible unconquered dots are equally near before distance rounding, expand **N equally near targets** to inspect them and choose one. Two distances both displayed as, for example, 12.3 km do not necessarily form a tie.
+Equally near target dots remain accessible in **Nearby target dots**, even if a tie expands the usual five-card list. Distances are compared before rounding. Two distances both displayed as 12.3 km do not necessarily form a tie.
 
-A separate stability rule can retain the chosen target while its computed distance remains within **10 metres** of the nearest candidate. In that case the radar labels it **Nearby Target** and explains the choice. Its own distance and bearing are displayed. An ineligible or conquered target is not retained.
+Without a deliberate selection, the separate stability rule can retain the automatic target while its computed distance remains within **10 metres** of the nearest candidate. The radar then labels it **Nearby Target Dot** and shows its own distance and bearing. A manual choice is not limited by that 10-metre allowance.
 
 ## Automatic target map updates
 
@@ -162,9 +172,9 @@ Use **Copy message**, then **Message Miguel**. Copying writes the reviewed text 
 
 ## Places, dot names and planning
 
-Prepared place and dot-name data currently focuses on the Euro-use area. In worldwide mode, covered mixed dots also include places on foreign land. Names and place lists are reviewed and updated over time, independently of app releases. Where a list is empty, incomplete or unavailable, **Choose on the map** lets you select a destination yourself.
+Prepared place and dot-name data currently focuses on the Euro-use area. In worldwide mode, covered mixed dots also include places on foreign land. Names and place lists are reviewed and updated over time, independently of app releases. Where a list is empty, incomplete or unavailable, **Choose your own point on the map** lets you select a destination yourself.
 
-The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, or **Places in this dot** when you are already in an eligible unconquered dot. When expanded, the header shows **Nearest Target Dot:** (or the applicable current/last-known status). The next row, before Target area, contains the dot name and ID followed by the orange distance and compass. Only the name and distance are bold. In the expanded panel, the compass is also a keyboard-accessible shortcut to the same places action. In the collapsed panel it remains a display only. Long names can wrap; distance and compass stay together. Collapsing the panel hides the name and returns the distance/compass to the existing compact header. Current-dot details remain available by tapping the map or GPS marker.
+The GPS panel has one places action for **the dot displayed by the radar**. It says **Places in nearest target**, **Places in selected target** after a deliberate choice, or **Places in this dot** when the active target is your current eligible unconquered dot. **Nearby target dots** opens the alternative-target selector. When expanded, the header shows **Nearest Target Dot:** (or the applicable current/last-known status). The next row, before Target area, contains the dot name and ID followed by the orange distance and compass. Only the name and distance are bold. In the expanded panel, the compass is also a keyboard-accessible shortcut to the same places action. In the collapsed panel it remains a display only. Long names can wrap; distance and compass stay together. Collapsing the panel hides the name and returns the distance/compass to the existing compact header. Current-dot details remain available by tapping the map or GPS marker.
 
 Every map-dot popup offers two actions:
 
@@ -181,7 +191,7 @@ An onward plan from another dot shows a prominent **Chosen start** box with the 
 
 The places heading identifies the whole dot: **Places in Torres Vedras Dot** on the top row, with `[460, 403]` on a separate, normal-weight row. Dot names are convenient display labels, not official EBT identifiers or automatic arrival selections. When the first worldwide representative is foreign, a mixed dot can show the Euro-use and foreign representatives, for example **Lemos / Pustec Dot [466, 475]**; Euro-use mode shows **Lemos Dot [466, 475]**. If its first worldwide representative is Euro-use, the worldwide name has one place. Preferred names can override these generated labels. Default representatives are selected from the full classified pools before taking each model's top five places. Names use English when supplied by OSM, otherwise the local name. Unnamed or unavailable data falls back to **Dot [row, column]**. The IDs, grid bounds and eligibility remain unchanged.
 
-Choose a suggested place or a point on the map, then check the prominent **Selected destination** box before opening Maps. The list shows an English second line beneath a local name when OSM supplies one. Each available distance explicitly says **from you** or **from chosen start**. Target-dot distance is measured to the cell; place distance is measured to the arrival point. Neither is a road distance. Fixed onward plans send both origin and destination at six decimals. GPS routes send the selected destination and let Maps use your location. Inspection without GPS sends a coordinate search. Dot labels are never used as Maps destinations. Google Maps can display its own address or nearby-place label for the coordinate you sent; that wording may differ from the selected place's name in Dot Safari. A coordinate handoff does not supply a custom Google Maps label. Equally near targets can be selected in the places panel. A map choice does not change the live radar's chosen dot.
+Choose a suggested place or the final **Choose your own point on the map** card, then check the prominent **Selected destination** box before opening Maps. That card uses the same layout when a list is empty or unavailable. It gains the selected border only after you confirm a manual point; cancelling map choice retains the previous destination. The list shows an English second line beneath a local name when OSM supplies one. Each available distance explicitly says **from you** or **from chosen start**. Target-dot distance is measured to the cell; place distance is measured to the arrival point. Neither is a road distance. Fixed onward plans send both origin and destination at six decimals. GPS routes send the selected destination and let Maps use your location. Inspection without GPS sends a coordinate search. Dot labels are never used as Maps destinations. Google Maps can display its own address or nearby-place label for the coordinate you sent; that wording may differ from the selected place's name in Dot Safari. A coordinate handoff does not supply a custom Google Maps label. Equally near targets can be selected in the places panel. A map choice does not change the live radar's chosen dot.
 
 A chosen destination survives an area change when it remains in the same inspected/target dot and qualifies for that model, including a listed point outside the new top five. An uncertain manual point chosen worldwide stays selected on switching to Euro-use, with its uncertainty warning and kept coordinates. Use it anyway or choose another point, beginning at those coordinates; Maps is withheld until review. A point known to be outside Euro-use is cleared on that switch. It can still be chosen deliberately in Euro-use after reviewing the warning.
 
